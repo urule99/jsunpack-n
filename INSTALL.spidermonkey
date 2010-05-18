@@ -1,0 +1,54 @@
+This modification is important! If you don't want to make this modification, you should follow step 99 at the bottom of this file.
+
+After fetching and spidermonkey and locating the correct file follow steps 1, 2 and 3.
+$ wget http://ftp.mozilla.org/pub/mozilla.org/js/js-1.8.0-rc1.tar.gz
+$ cd js/src
+$ vi jsobj.c
+
+
+1) Add around line 1184 (beginning of function body obj_eval):
+    size_t n, i;
+    jschar *s;
+
+2) Add around line 1314 (within function obj_eval):
+
+|    principals = NULL;
+|    }
+
+    //added
+    if (JSSTRING_IS_DEPENDENT(str)) {
+        n = (size_t)JSSTRDEP_LENGTH(str);
+        s = JSSTRDEP_CHARS(str);
+    } else {
+        n = (size_t)str->length;
+        s = str->u.chars;
+    }
+    printf("\n//eval\n");
+    for (i = 0; i < n; i++){
+        if (s[i] == '\0'){
+                break;
+        }
+        printf("%c",s[i]);
+    }
+    printf("\n");
+    //end added
+
+|    /*
+|     * Set JSFRAME_EVAL on fp and any frames (e.g., fun_call if eval.call was
+
+
+3) Then build with:
+$ make BUILD_OPT=1 -f Makefile.ref
+
+After this, you will find a "./Linux_All_OPT.OBJ/js" binary file.
+
+99) Note: If you cannot use "./Linux_All_OPT.OBJ/js" as the default 'js' command, then you should 
+uncomment the following code within pre.js below to make it active. (If you just built spidermonkey, you do not want to uncomment the following code)
+
+/* //Comment out because spidermonkey handles eval now
+var my_eval = this.eval;
+this.eval=function (str){
+        print('\n//eval\n'+str);
+        return my_eval(str);
+}
+*/

@@ -1,0 +1,26 @@
+/***
+Yara Rules (ASCII ONLY) file for jsunpackn 
+http://jsunpack.jeek.org/
+Blake Hartstein 
+blake[@]jeek.org
+Last updated 09/18/2009
+
+see "rules" for options that jsunpack supports
+This is a special version of the rules file that strips off all non-[a-z] characters
+
+*/
+rule PDFHiddenExploit: decodedPDF strip
+{	// Basically a copy of PDFexploit, except:
+	// 1) we strip all characters we don't want
+	// 2) cannot use fullword
+	// 3) don't want duplicates if PDFexploit might already catch it
+	meta:
+		impact = 8
+	strings:	
+		$cve20082992 = "utilprintf" nocase
+		$cve20091493 = "spellcustomDictionaryOpen" nocase 
+		$cve20075659 = "collabcollectEmailInfo" nocase 
+		$cve20090927 = "collabgetIcon" nocase 
+	condition: 
+		1 of them
+}

@@ -1,0 +1,9 @@
+<html>
+
+<body onload=jsfunc()>
+
+<script>
+function jsfunc(){ print ("it's all good"); }
+</script
+</body>
+</html>
