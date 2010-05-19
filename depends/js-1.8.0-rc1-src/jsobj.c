@@ -1167,6 +1167,8 @@ js_ComputeFilename(JSContext *cx, JSStackFrame *caller,
 static JSBool
 obj_eval(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
+    size_t n, i;
+    jschar *s;
     JSStackFrame *fp, *caller;
     JSBool indirectCall;
     JSObject *scopeobj;
@@ -1310,6 +1312,23 @@ obj_eval(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
         line = 0;
         principals = NULL;
     }
+    //added
+    if (JSSTRING_IS_DEPENDENT(str)) {
+        n = (size_t)JSSTRDEP_LENGTH(str);
+        s = JSSTRDEP_CHARS(str);
+    } else {
+        n = (size_t)str->length;
+        s = str->u.chars;
+    }
+    printf("\n//eval\n");
+    for (i = 0; i < n; i++){
+        if (s[i] == '\0'){
+                break;
+        }
+        printf("%c",s[i]);
+    }
+    printf("\n");
+    //end added
 
     /*
      * Set JSFRAME_EVAL on fp and any frames (e.g., fun_call if eval.call was

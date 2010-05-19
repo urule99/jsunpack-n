@@ -123,6 +123,35 @@ js_GetStringChars(JSContext *cx, JSString *str)
     return JSFLATSTR_CHARS(str);
 }
 
+//added (globals and function)
+JSBool found_shellcode = JS_FALSE;
+JSBool found_shellcode_char = JS_FALSE;
+JSBool check_shellcode(jschar * s, size_t n){
+    int i = 0, count_threshold = 0;
+    char *a = (char *)s; /* jschar is uint16, therefore n is multiplied by 2 to get the char size */
+
+    if (n > 65535 && found_shellcode == JS_FALSE){
+        //code too large
+        printf("\n//warning CVE-NO-MATCH Shellcode Engine Length %d\n", n);
+        found_shellcode = JS_TRUE;
+    }
+    if (n > 100){
+        while (i<n*2 && found_shellcode_char == JS_FALSE){
+            if ((a[n] > 0 && a[n] < ' ' &&  a[n] != '\r' && a[n] != '\n' && a[n] != '\t') || (a[n] >= '\x7f')){
+                count_threshold ++;
+                if (count_threshold > 25){
+                    printf("\n//warning CVE-NO-MATCH Shellcode Engine Binary Threshold\n",a[n]);
+                    found_shellcode_char = JS_TRUE;
+                    return JS_TRUE;
+                }
+            }
+            i++;
+        }
+    }
+    return JS_FALSE;
+}
+//end added
+
 JSString *
 js_ConcatStrings(JSContext *cx, JSString *left, JSString *right)
 {
@@ -164,6 +193,11 @@ js_ConcatStrings(JSContext *cx, JSString *left, JSString *right)
     js_strncpy(s + ln, rs, rn);
     n = ln + rn;
     s[n] = 0;
+
+    //added (append(shellcode))
+    check_shellcode(s,n);
+    //end added
+
     str = js_NewString(cx, s, n);
     if (!str) {
         /* Out of memory: clean up any space we (re-)allocated. */
@@ -451,6 +485,12 @@ str_unescape(JSContext *cx, uintN argc, jsval *vp)
         newchars[ni++] = ch;
     }
     newchars[ni] = 0;
+
+    //added (unescape(shellcode))
+    if (check_shellcode(newchars,ni) == JS_TRUE){
+        printf("\n//shellcode len %d (including any NOPs) JSEngineUnescaped = %s",ni,chars); 
+    }
+    //end added
 
     str = js_NewString(cx, newchars, ni);
     if (!str) {
