@@ -5,7 +5,7 @@ This is Beta release of jsunpack-network (jsunpackn) version 0.3.2b
 
 RELEASE NOTES:
 
-Updates 2010-05-18 version 0.3.2b
+Updates 2010-05-20 version 0.3.2b
 
 1) added INSTALL.spidermonkey.shellcode instructions. This adds improved shellcode detection.
 2) updated jsunpack class options structure. New options will always use file contents instead of filenames (where possible). Also, rules are now part of the options structure.
@@ -13,6 +13,7 @@ Updates 2010-05-18 version 0.3.2b
 4) you can use jsunpack.version to get the current version string
 5) new performance option (-f "fasteval") for disabling non-critical features in favor of performance
 6) fixed a bug in redoevaltime option affecting performance of malicious scripts
+7) fixed a pdf parsing bug for /Page related to testcase samples/pdf-numPages.file
 
 Updates 2010-05-05 version 0.3.2a
 1) implemented this.numPages, getPageNthWord, and getPageNumWords
