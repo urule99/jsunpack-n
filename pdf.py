@@ -305,9 +305,13 @@ class pdf:
                             if childkey in self.objects and (type == 'Subj'):
                                 self.objects[childkey].isAnnot = True
                     if k == 'Page':
+                        hasContents = False
                         for type, childkey in self.objects[key].children:
                             if type == 'Contents':
                                 self.pages.append(childkey)
+                                hasContents = True
+                        if not hasContents:
+                            self.pages.append(key)
 
                     #populate pdfobj's doc_properties with those that exist
                     enum_properties = ['Title','Author','Subject','Keywords','Creator','Producer','CreationDate','ModDate']
