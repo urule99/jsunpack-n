@@ -169,7 +169,6 @@ class jsunpack:
 
             for pdfversion in pdfversions: #if the runningTime is short, try these alternative versions
                 if duration<self.OPTIONS.timeout and runningTime<=self.OPTIONS.redoevaltime:
-                    print 'newfile: runtime_last', runningTime, 'redoevaltime:', self.OPTIONS.redoevaltime
                     env_vars = 'app.viewerVersion = Number(%s);\n' % (pdfversion)
 
                     decoded,currentRunningTime = self.decodeJShelper('%s%s' % (env_vars,to_write))
