@@ -375,8 +375,7 @@ var control = {
 	getVersions: function(){ return 0; }
 };
 var event = {};
-event.target = {};
-event.target.unescape = unescape;
+event.target = this;
 var alert = function(){}
 window.alert = alert;
 var prompt = function(){ return 1; }
