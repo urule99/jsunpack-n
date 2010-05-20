@@ -409,7 +409,7 @@ class pdf:
                         subj = re.sub('[\x00-\x1f\x7f-\xff]','',subj)
                         out += 'zzzannot2["%s"] = {subject:\'%s\'};\n' % (self.objects[jskey].knownName,subj) #getAnnot
                 for property in self.objects[jskey].doc_properties:
-                    out += 'info.%s = String(\'%s\');\n' % (property,value)
+                    out += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (property,value,property,property)
         for page in self.pages:
             if page in self.objects:
                 lines = self.objects[page].tagstream.split('\n')
