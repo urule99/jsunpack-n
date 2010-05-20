@@ -333,7 +333,7 @@ class pdf:
                             else:
                                 #not a reference, use the direct value
                                 value = re.sub('\'','\\x27',value)
-                                self.objects[key].staticScript += 'info.%s = String(\'%s\');\n' % (k.lower(),value)
+                                self.objects[key].staticScript += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (k.lower(),value,k.lower(),k.lower())
                                 self.objects[key].staticScript += 'app.doc.%s = String(\'%s\');\n' % (k.lower(),value)
                     
                 #try this before doing anything
