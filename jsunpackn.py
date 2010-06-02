@@ -277,6 +277,9 @@ class jsunpack:
             if self.OPTIONS.debug:
                 self.rooturl[self.url].dbgobj.addTimer()
 
+            if not (os.path.exists(self.OPTIONS.pre) and os.path.exists(self.OPTIONS.post)):
+                exit("Fatal: Failed to find pre.js and post.js")
+
             po = subprocess.Popen(['js', '-f', self.OPTIONS.pre, '-f', current_filename+'.js', '-f', self.OPTIONS.post], shell=False, stdout = js_stdout, stderr = js_stderr)
 
             while po.poll() == None and (time.time()-begin) < self.OPTIONS.timeout:
