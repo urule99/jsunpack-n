@@ -97,6 +97,7 @@ class jsunpack:
         self.hparser = html.Parser(self.OPTIONS.htmlparseconfig)
 
         #done setup, now initialize the decoding
+        self.startTime = time.time()
         if self.OPTIONS.interface:
             nids.param('device', self.OPTIONS.interface)
             self.run_nids()
@@ -155,6 +156,7 @@ class jsunpack:
                     if self.rooturl[url].malicious == urlattr.NOT_ANALYZED:
                         if not (self.rooturl[url].type == 'img' or self.rooturl[url].type == 'input' or self.rooturl[url].type == 'link'):
                             todo.append(url)
+
 
     def decodeVersions(self,to_write,isPDF):
         decodings = [] #there may be multiple decodings if we get different results for version strings
@@ -282,14 +284,25 @@ class jsunpack:
 
             po = subprocess.Popen(['js', '-f', self.OPTIONS.pre, '-f', current_filename+'.js', '-f', self.OPTIONS.post], shell=False, stdout = js_stdout, stderr = js_stderr)
 
-            while po.poll() == None and (time.time()-begin) < self.OPTIONS.timeout:
-                time.sleep(0.05)
+            timeLimitExceededReason = ''
+            while not timeLimitExceededReason and po.poll() == None:
+                curTime = time.time()
+                
+# Checking various timeouts -- if a timeout is hit, we'll break out of this while loop of polling doom.
+                if self.OPTIONS.timeout > 0 and (curTime - begin) >= self.OPTIONS.timeout:
+                    timeLimitExceededReason = 'script analysis exceeded %d seconds (incomplete)' % (self.OPTIONS.timeout) 
+                    fixErrors = 0 #don't recurse into this function
+
+                elif self.OPTIONS.maxruntime > 0 and (curTime - self.startTime) >= self.OPTIONS.maxruntime:
+                    timeLimitExceededReason = 'maxruntime exceeded %d seconds (incomplete)' % self.OPTIONS.maxruntime
+                    self.OPTIONS.nojs = True #don't decode anything else
+                    fixErrors = 0 #don't recurse into this function
+                else:                    
+                    time.sleep(0.05)
 
             if po.poll() == None:
                 #process didn't finish
                 os.kill(po.pid,signal.SIGKILL)
-                self.rooturl[self.url].log(True,5,'analysis exceeded %d seconds (%d bytes, incomplete)' % (self.OPTIONS.timeout, len(decoded)))
-                self.rooturl[self.url].setMalicious(5)
                 if self.OPTIONS.veryverbose:
                     self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, to_write,'timeout')
 
@@ -304,6 +317,10 @@ class jsunpack:
             js_stderr = open(current_filename+'.stderr', 'rb')
             errors = js_stderr.read()   
             js_stderr.close()
+
+            if timeLimitExceededReason:
+                self.rooturl[self.url].log(True,2,'%s %d bytes' % (timeLimitExceededReason,len(decoded)))
+                self.rooturl[self.url].setMalicious(2)
 
             if self.OPTIONS.debug:
                 self.rooturl[self.url].dbgobj.addLaunch(current_filename)
@@ -1077,6 +1094,9 @@ def main():
     parser.add_option('-r', '--redoEvalLimit', dest='redoevaltime',
         help='maximium evaluation time to allow processing of alternative version strings', #default=1,
         action='store')
+    parser.add_option('-m', '--maxRunTime', dest='maxruntime',
+        help='maximum running time (seconds; cumulative total). If exceeded, raise an alert (default: no limit)', default=None,
+        action='store')
     parser.add_option('-f', '--fast-evaluation', dest='fasteval',
         help='disables (multiversion HTML,shellcode XOR) to improve performance', #default false
         action='store_true')
@@ -1143,8 +1163,6 @@ def main():
             for path,value in config.items('decoding'):
                 if value == 'True': value = True
                 elif value == 'False': value = False
-                if path == 'timeout' or path == 'redoevaltime':
-                    value = int(value) 
                 fileopt[path] = value
         else:
             print 'Warning: options.config file not found'
@@ -1160,6 +1178,11 @@ def main():
                 setattr(options,path,fileopt[path])
         else:
             setattr(options,path,fileopt[path])
+
+    #these options must be int values
+    options.timeout = int(options.timeout)
+    options.redoevaltime = int(options.redoevaltime)
+    options.maxruntime = int(options.maxruntime)
 
     #end config file 
 
