@@ -179,7 +179,7 @@ class jsunpack:
                     decodings.append(['app.viewerVersion='+pdfversion,decoded])
                 
         else:
-            need_to_write = 'function my_location(){ this.href = "%s"; this.host = "%s"; } var location = new my_location(); document.location = location; window.location = location; var windowlocation = location; \n%s\n' % (self.url,self.url,to_write)
+            need_to_write = 'var location = new my_location("%s","%s"); \n%s\n' % (self.url,self.url,to_write)
             if not self.OPTIONS.fasteval: #don't evaluate HTML en/zh-cn in favor of performance
                 for lang in ['en','zh-cn']:
                     if duration<self.OPTIONS.timeout and runningTime<=self.OPTIONS.redoevaltime:

@@ -360,14 +360,22 @@ var getPageNumWords = function(page) { print ("//info getPageNumWords("+page+")"
 //Static Functions - common but useless
 function CollectGarbage(){}
 function urchinTracker(){}
-function my_location(){ 
-	this.href = ''; 
-	this.host = ''; 
+function my_location(one,two){ 
+	this.href = String(one); 
+	this.host = String(two); 
+    this.assign = function (newurl){
+        print ('//jsunpack.url locationAssign = ' + newurl);
+    };
+    document.location = this;
+    window.location = this;
+    windowlocation = this;
+    location.pathname = String(this.href);
+
 } 
 function attachEvent(action, fun) {
 	//print ('attachevent');
 }
-var location = new my_location(); 
+var location = new my_location('http://example.com','example.com'); 
 document.location = location; 
 window.location = location; 
 var windowlocation = location;
