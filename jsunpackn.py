@@ -213,11 +213,8 @@ class jsunpack:
         try:
             to_write_headers, to_write = self.hparser.htmlparse(content)
         except Exception, e:
-            pass #print 'Error in htmlparsing', str(e)
+            to_write_headers, to_write = '', '' #print 'Error in htmlparsing', str(e)
 
-        if self.OPTIONS.debug:
-            self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, to_write,'debug')
-        
         if len(to_write) > 0: #html parse succeeded
             to_write = to_write_headers + to_write
             decodings = self.decodeVersions(to_write,isPDF)
@@ -781,12 +778,7 @@ class jsunpack:
 
     def internal_addr(self,ipin):
         '''returns True if 127.*, or other internal addr'''
-        #ip = socket.inet_aton(ip)
-        try:
-            ip = struct.unpack('L',socket.inet_aton(ipin))[0]
-        except:
-            #is this a python 2.6 problem where inet_aton return value is integer?
-            ip = socket.inet_aton(ipin)
+        ip = struct.unpack('=L',socket.inet_aton(ipin))[0]
 
         blocks = [
                     ['127.0.0.0', 8],
@@ -794,10 +786,7 @@ class jsunpack:
                     ['192.168.0.0', 16],
                     ['172.16.0.0', 12]    ]
         for block,n in blocks:
-            try:
-                ipnet = struct.unpack('L',socket.inet_aton(block))[0] & (2L<<n-1) - 1
-            except:
-                ipnet = socket.inet_aton(block) & (2L<<n-1) - 1
+            ipnet = struct.unpack('=L',socket.inet_aton(block))[0] & (2L<<n-1) - 1
             if ipnet | ip == ipnet:
                 return True
         return False
