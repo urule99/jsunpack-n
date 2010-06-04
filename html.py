@@ -135,7 +135,7 @@ class Parser:
                     else:
                         for i in range(0,len(outvals)):
                             self.storage.append([format,now[outvals[i]]])
-        return outheader,out
+        return str(outheader),str(out)
 
 
 if __name__ == '__main__':
