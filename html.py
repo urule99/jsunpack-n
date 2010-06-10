@@ -23,6 +23,7 @@ class Parser:
         if htmlparseconfig:
             htmlrules = htmlparseconfig.splitlines()
         else:
+            htmlrules = []
             print 'Fatal: missing htmlparse config'
 
         line = 0

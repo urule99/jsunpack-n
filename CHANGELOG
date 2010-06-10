@@ -7,6 +7,7 @@ RELEASE NOTES:
 
 1) bug fixes
 2) added global 'maxruntime' option to limit cumulative processing and raise a suspicious alert (off by default)
+3) added $CURDATE options.config output option
 
 Updates 2010-05-20 version 0.3.2b
 

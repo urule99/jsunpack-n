@@ -93,6 +93,10 @@ class jsunpack:
         if self.OPTIONS.verbose:
             urlattr.verbose = True
 
+        self.OPTIONS.outdir = self.replaceCurrentDate(self.OPTIONS.outdir)
+        self.OPTIONS.tmpdir = self.replaceCurrentDate(self.OPTIONS.tmpdir)
+        self.OPTIONS.log_ips = self.replaceCurrentDate(self.OPTIONS.log_ips)
+        self.OPTIONS.decoded = self.replaceCurrentDate(self.OPTIONS.decoded)
 
         self.hparser = html.Parser(self.OPTIONS.htmlparseconfig)
 
@@ -157,6 +161,18 @@ class jsunpack:
                         if not (self.rooturl[url].type == 'img' or self.rooturl[url].type == 'input' or self.rooturl[url].type == 'link'):
                             todo.append(url)
 
+    def replaceCurrentDate(self, variable):
+        curdate = variable.find('$CURDATE')
+        if curdate > -1:
+            yr, mo, day = time.gmtime()[0:3]
+            before = ''
+            if curdate > 0:
+                before = variable[0:curdate]
+            after = variable[curdate + len('$CURDATE'):]
+            
+            variable = '%s%04d%02d%02d%s' % (before,yr,mo,day,after)
+        return variable
+        
 
     def decodeVersions(self,to_write,isPDF):
         decodings = [] #there may be multiple decodings if we get different results for version strings
@@ -1042,7 +1058,14 @@ class jsunpack:
             self.rooturl[self.url].log(self.OPTIONS.verbose,0,'file: saved %s to (%s)' % (self.url, sha1orig))
 
         if self.OPTIONS.decoded: 
-            flog = open(self.OPTIONS.decoded,'a')
+            if self.OPTIONS.outdir and not os.path.exists(self.OPTIONS.outdir):
+                os.mkdir(self.OPTIONS.outdir)
+
+            if os.path.exists(self.OPTIONS.decoded):
+                flog = open(self.OPTIONS.decoded,'a')
+            else:
+                flog = open(self.OPTIONS.decoded,'w')
+
             if flog:
                 flog.write(self.rooturl[self.url].tostring('',False)[0])
                 flog.close()
