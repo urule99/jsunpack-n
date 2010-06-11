@@ -102,6 +102,8 @@ class jsunpack:
 
         #done setup, now initialize the decoding
         self.startTime = time.time()
+        self.NIDS_INIALIZED = False #don't initialize nids twice!
+
         if self.OPTIONS.interface:
             nids.param('device', self.OPTIONS.interface)
             self.run_nids()
@@ -123,14 +125,8 @@ class jsunpack:
             if mydata:
                 self.rooturl[self.url].setMalicious(urlattr.ANALYZED)
                 if mydata.startswith('\xD4\xC3\xB2\xA1'): #pcap
-                    self.forceStreams = True #forceStreams option only applies to pcap files, 
-                    #if live we assume NIDS_TIMEOUT works
-
                     if ENABLE_NIDS:
-                        nids.param('filename', myfile)
-                        self.run_nids()                        
-                        for addr in self.streams: #process unclosed streams
-                            self.handleTcpHelper(self.streams[addr])
+                        self.run_nids(myfile)                        
                     else:
                         print '[warning] %s not scanned because pynids ("import nids") failed' % (file)
                 else:
@@ -692,6 +688,8 @@ class jsunpack:
                     get_url = host + uri
 
                     #Everything has start as its parent (if its a pcap/interface)
+                    if not self.start in self.rooturl:
+                        self.rooturl[self.start] = urlattr(self.rooturl, self.start)
                     self.rooturl[self.start].setTcpMethod(get_url,tcp.addr,method)
 
                     http_request.append([method, host, uri, referer])
@@ -1076,12 +1074,20 @@ class jsunpack:
         if self.OPTIONS.debug:
             self.rooturl[self.url].dbgobj.finalize_main()
 
-    def run_nids(self):
-        nids.init()
-        nids.chksum_ctl([('0.0.0.0/0',False)])  #this is to exclude checksum verification
-                            #which in the case of proxies may cause libnids to miss traffic
+    def run_nids(self,myfile = ''):
+        if myfile:
+            self.forceStreams = True #forceStreams option only applies to pcap files, 
+            nids.param('filename', myfile)
+            nids.init()
 
-        nids.register_tcp(self.handleTcpStream)
+        if not self.NIDS_INIALIZED:
+            nids.param('scan_num_hosts', 0)
+            nids.init()
+            nids.chksum_ctl([('0.0.0.0/0',False)])  #this is to exclude checksum verification
+                                #which in the case of proxies may cause libnids to miss traffic
+            nids.register_tcp(self.handleTcpStream)
+            self.NIDS_INIALIZED = True
+
         try:
             #This is a LIVE-only option soon
             #while 1:
@@ -1094,6 +1100,9 @@ class jsunpack:
             print 'nids/pcap error:', e
         #except Exception, e:
         #   print 'exception:', e
+        if self.forceStreams:
+            for addr in self.streams: #process unclosed streams
+                self.handleTcpHelper(self.streams[addr])
 
 def main():
     global ENABLE_NIDS
@@ -1102,9 +1111,7 @@ def main():
 
     message = '\n\t./jsunpackn.py [fileName]\n\t./jsunpackn.py -i [interfaceName]\n\tjsunpack-network version %s' % (jsunpack.version)
 
-    if ENABLE_NIDS:
-        nids.param('scan_num_hosts', 0)
-    else:
+    if not ENABLE_NIDS:
         message += '\n\t[warning] pynids is disabled, while you cannot process pcap files or a network interface, you can still process JavaScript/HTML files\n'
 
     if not ENABLE_MAGIC:
@@ -1125,6 +1132,9 @@ def main():
         action='store_true')
     parser.add_option('-u', '--urlFetch', dest='urlfetch',
         help='actively fetch specified URL (for fully active fetch use with -a)', default='',
+        action='store')
+    parser.add_option('-d', '--destination-directory', dest='outdir', 
+        help='output directory for all suspicious/malicious content', default = '', 
         action='store')
     parser.add_option('-c', '--config', dest='configfile',
         help='configuration filepath (default options.config)', default='options.config',
@@ -1162,7 +1172,6 @@ def main():
 
     #Disabled/legacy command line options
     '''
-    parser.add_option('-d', '--destination-directory', dest='outdir', help='output directory for all suspicious/malicious content', default = './files', action='store')
     parser.add_option('-T', '--temporary-directory', dest='tmpdir', help='output directory for temporary files (default current directory)', default = '.', action='store')
     parser.add_option('-L', '--log-directory', dest='logdir', help='output directory for log file (default current directory)', default = '.', action='store')    
     parser.add_option('-p','--ip-logfile',dest='log_ips', help='optional logfile which appends malicious domains and IP addresses', default='', action='store')
