@@ -14,7 +14,7 @@ if ( elementn > 100){
 }
 if ( elementn > -1 ){
 	for (var i = 0; i <= elementn; i++){
-		print ('\n//jsunpack.element '+ elements[i].src);
+		print ('\n//jsunpack.url '+ elements[i].src);
 	}
 }
 if ( windowlocation != window.location){
