@@ -77,7 +77,11 @@ class Parser:
         '''
         outheader, out = '', ''
         data = re.sub('\x00','',data)
-        soup = BeautifulSoup.BeautifulSoup(data)
+
+        try:
+            soup = BeautifulSoup.BeautifulSoup(data)
+        except:
+            return '','' #fatal error htmlparsing
         
         for tag,attrib,invals,format,outvals in self.html_parse_rules:
             for htm in soup.findAll(tag,attrib):
