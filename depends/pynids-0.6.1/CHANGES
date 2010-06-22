@@ -1,0 +1,95 @@
+pynids
+
+Attribution:
+    <default> - Michael J. Pomraning
+    JN - Jose Nazario
+    RB - Richard Bejtlich
+	JO - Jon Oberheide
+	EC - Evan Cooke
+	JF - Jeff Nathan
+
+9 May 2010
+    - version 0.6.1 (JO)
+    - bump bundled libnids to 1.24 (JO)
+    - support for packet timestamps (JF)
+    - support for pcap stats (JF)
+
+9 Oct 2009
+    - version 0.6 (JO)
+    - bump bundled libnids to 1.23 (JO)
+    - added -fPIC to fix builds (JO)
+
+3 May 2007
+    - version 0.5a (JO)
+    - bump bundled libnids to 1.21 (JO)
+    - add checksum control function (chksum_ctl) (EC)
+
+31 Jan 2005
+    - version 0.5
+    - documented nids.param() variables.
+    - documented TcpStream and HalfStream methods and members in module
+      docstring.
+    - added 'Prerequisites' to README.
+
+27 Jan 2005
+    - version 0.5rc1
+    - setup.py nonstandard patch(1) invocation flummoxed FreeBSD (rpt. RB)
+
+26 Jan 2005
+    - version 0.4
+    - docstrings added to module and module functions.
+    - libnids-1.19 and ``nids_dispatch()'' patch bundled, allowing proper
+      exception handling in callbacks all around.
+    - API: 'dispatch' function added.  Undocumented and subject to change if
+      libnids adopts similar function.
+    - misc: setup.py searches '/usr/local' by default.  <netinet/in_systm.h>
+      included.
+
+24 Dec 2004
+    - version 0.4rc1
+    - makeRegisterFunc macro increfs user-supplied function.  (On linux, at
+      least, registration of bound methods would precipitate segfault.)
+    - hs_get_data, hs_get_urgdata return strings now, not read-only buffers
+      objects.
+
+06 Dec 2004
+    - version 0.3
+    - API: 'pcap_timeout' parameter support for libnids >= 1.19
+    - API: 'collect' and 'collect_urg' are boolean-ified
+    - tp_getset/tp_method reimplementation of TcpStream and HalfStream
+    - fix possible memory corruption (noticed by JN):  hlfs->data member not
+      guaranteed to be allocated (e.g., in a NIDS_JUST_EST conn).
+      API: We treat as an empty buffer in this case.
+    - misc: Py_RETURN_NONE, PyModule_AddIntConstant(), "N" fmt specifier in
+      udp handler
+    - updated README
+
+05 Dec 2004
+    - version 0.2
+    - "filename" awareness in nids.param() (patch JN)
+    - exception throwing retracted for next()/run(), after difficulty
+      indicated by JN.  next() now returns as does nids_next(), and run()
+      returns None.
+    - updated README, Example
+
+13 Aug 2003
+    - half-stream "data" member now raw PyBuffer
+    - plug minor nids_param memleak
+    - errbuf() retired in favor of module exception (nids.error).  init,
+      run, next and getfd modified accordingly
+    - updated README
+
+20 Jul 2003
+    - version 0.1
+    - mem: fix callTcpFunc() memleak, discretionary HalfStream ctor
+    - run()/next() exception propagation
+    - added Example, installation blurb
+
+18 Jul 2003
+    - complete register_*, remove some error-checking (!)
+    - pytuple4
+    - README, CHANGES
+
+17 Jul 2003
+    - init, run, next, discard, getfd, register_tcp
+    - TcpStream objects, HalfStream objects

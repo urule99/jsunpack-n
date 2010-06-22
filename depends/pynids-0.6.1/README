@@ -1,0 +1,144 @@
+pynids-0.6.1
+http://jon.oberheide.org/pynids/
+
+Introduction
+============
+pynids is a python wrapper for libnids, a Network Intrusion Detection System
+library offering sniffing, IP defragmentation, TCP stream reassembly and TCP
+port scan detection.
+
+pynids is free software, copyright (C) 2003, 2004, 2005 Michael J. Pomraning
+<mjp{AT}pilcrow{DOT}madison{DOT}wi{DOT}us>.  See the file COPYING for
+license information.
+
+libnids is (c) 1999 Rafal Wojtczuk <nergal@avet.com.pl> and licensed under the
+GNU GPL.  See http://www.packetfactory.net/projects/libnids/ for more
+information.
+
+Installation
+============
+
+  Prerequisites
+  -------------
+  Python >= 2.2 (www.python.org)
+  libpcap (www.tcpdump.org)
+  libnet (www.packetfactory.net/libnet)
+  tar(1) and patch(1)
+
+  libnids itself is supplied in the pynids distribution.
+
+  Build and Install
+  -----------------
+  $ python setup.py build
+  $ python setup.py install
+
+API Translation
+===============
+
+  General
+  -------
+  #include <nids.h>           import nids
+
+  extern nids_params          nids.param(what [, new_val])
+
+  extern char nids_errbuf[]   nids.error Exception instance
+
+  struct tcp_stream           TcpStream type
+    nids_killtcp(tcp_s)       tcpStreamObj.kill()
+    nids_discard(tcp_s, 0)    tcpStreamObj.discard(0)
+
+  struct half_stream          HalfStream type
+
+  struct tuple4               ((src, sport), (dst, dport))
+
+  Callback Arguments
+  ------------------
+  Packets and payloads are string buffers, whereas libnids-specific structs
+  are their own types.  Either bound methods or plain functions may be
+  registered as callbacks -- their call signature differs only in the presence
+  or absence of an initial 'self' argument.
+
+  Examples of plain function callbacks:
+
+    def ip_callback(pkt):
+        pass
+
+    def frag_callback(pkt):
+        pass
+
+    def udp_callback(addrs, payload, pkt):
+        ((sip, sport), (dip, dport)) = addrs
+        ....
+
+    def tcp_callback(tcpStreamObj):
+        clientHlf = tcpStreamObj.client
+        serverHlf = tcpStreamObj.server
+
+  Significant Differences
+  -----------------------
+  - error handling (global nids_errbuf[], python exceptions)
+    No function returns an error code; instead, a nids.error exception is
+    raised for init() and getfd().  Unlike libnids, our next() function can
+    detect pcap errors (again raised as nids.error).  Exceptions in user
+    callbacks will break either next() or run() calls.
+
+  - nids_params (global settings)
+    nids.param() handles accessing and changing libnet state variables; there
+    is no object corresponding to a struct nids_prm.  Some parameters are
+    unimplemented -- see BUGS below.
+
+  - half_stream members
+    Only "collect" and "collect_urg" are mutable attributes.
+
+  - Only one handler per register_* type
+    Successive calls to, e.g., register_tcp() will simply replace the
+    user-defined handle slotted for TCP packets.  If you want multiple
+    functions to process packet, implement your own:
+  
+      for f in tcp_func_list:
+          f(tcp_s)
+
+  - user_tcp_func(..., void **param)
+    The user-controlled pointer has no analog in pynids.  Programmers may
+    store connection-specific data in a global dict, for example, keyed on
+    tcpStream.addr.  A bound methods registered as callbacks may of course
+    access members of its corresponding object.
+
+  - tuple4 structs
+    IP addresses are represented as dotted quad strings, and tuple4 members
+    are (re)arranged into a pair of two-tuples suitable for use as AF_INET
+    addresses in the socket module.
+
+  Significant Likenesses
+  ----------------------
+  - pynids use, like libnids use, should be restricted to one and only one
+    thread (static variables under the hood).  See also "threads and GIL" in
+    BUGS, below.
+
+  - pcap_close() is apparently only called when nids_run() returns in libnids
+    1.18; beware fd leaks and inheritance.  More generally, there is no way
+    to de-initialize the underlying nids library (reclaiming memory allocated
+    for stream reassembly, for instance).
+
+BUGS
+====
+
+- nids.param()
+  . missing function hooks (syslog, no_mem, ip_filter)
+    Should we just nail no_mem() down to throw nids.error and invalidate
+    subsequent nids calls?
+  . cannot distinguish between invalid members and char * members set to NULL;
+    param("foo") and param("pcap_filter") could both return None, e.g.
+  . missing type checking
+  . implementation is awkward, comparable to old tp_getattr; better/easier as
+    a module object with members/getsets.
+  . invocation constrained; perhaps introduce a keyword function?
+
+- testing
+  . generally insufficient (ip_fragments, tcpO.kill(), etc.)
+  . memory profiling
+
+- threads and GIL
+  libnids/libpcap routines have no knowledge of the python GIL, so pynids
+  method calls will block other python threads.
+
