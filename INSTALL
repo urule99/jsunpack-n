@@ -4,43 +4,38 @@ http://jsunpack.jeek.org/
 INSTALL NOTES:
 
 Required:
-1) Get pynids (nids) from http://jon.oberheide.org/projects/pynids/downloads/pynids-0.5a.tar.gz (make sure you get this one and not the older one)
+1) Build pynids (nids) from ./depends/pynids-0.6.1/.
+    (new versions are released at http://jon.oberheide.org/pynids/)
 	To compile pynids, you need the following ubuntu packages:
 	pkg-config python-dev libgtk2.0-dev libnet1-dev
 
-	from ./pynids-0.5a/
+	from ./depends/pynids-0.6.1/ directory
 	$ python setup.py build
 	$ python setup.py install
 
-2) Get SpiderMonkey JS, you must have 'js' binary in your path
-	You can either install the spidermonkey-bin package or compile from source
-	1) http://ftp.mozilla.org/pub/mozilla.org/js/ (prefer js-1.7.0.tar.gz or greater)
+2) Build SpiderMonkey 'js' from ./depends/js-1.8.0-rc1-src/.
+    (new versions are released at http://ftp.mozilla.org/pub/mozilla.org/js/)
 
-	There are many advantages to modifying the spidermonkey source code, for instructions please read INSTALL.spidermonkey and INSTALL.spidermonkey.shellcode
+    This package has modifications to the spidermonkey source code; therefore, it is not recommended you use default smjs packages. (Details of the modifications are in INSTALL.spidermonkey.shellcode and INSTALL.spidermonkey, for historical purposes)
 
-3) Get YARA (detection library), you must use YARA 1.3 (or greater) from http://code.google.com/p/yara-project/downloads/list
+    from ./depends/js-1.8.0-rc1-src/ directory
+    $ make BUILD_OPT=1 -f Makefile.ref
+    Then, make the 'js' binary available within your path.
 
+3) Build YARA (detection library) from ./depends/yara-1.4/
+    (new versions are released at http://code.google.com/p/yara-project/downloads/list)
     (For Ubuntu or other systems, these packages may be required: libpcre3 libpcre3-dev)
 
-    $ wget http://yara-project.googlecode.com/files/yara-1.3.tar.gz
-    $ wget http://yara-project.googlecode.com/files/yara-python-1.3.tar.gz
-
-    Additionally, on my system the directory /usr/share/libtool/config/ did not exist. Therefore, I had to download libtool, compile it, then create a symbolic link:
-
-    $ wget http://ftp.gnu.org/gnu/libtool/libtool-2.2.tar.gz
-    build it, then:
-
-    $ sudo ln -s /usr/local/share/libtool/ /usr/share/libtool
-
-	build both yara and yara-python
-	For Ubuntu or other systems, you may need to add the following path:
+	For Ubuntu or other systems, you may need to add the following path after building:
 
 	$ sudo echo "/usr/local/lib" >> /etc/ld.so.conf
 	$ sudo ldconfig
+4) Build YARA Python from ./depends/yara-python-1.4/
+    (new versions are released at http://code.google.com/p/yara-project/downloads/list)
 
-
-4) BeautifulSoup from http://www.crummy.com/software/BeautifulSoup/#Download
-
+5) Install BeautifulSoup to your python directory from ./depends/BeautifulSoup.py
+    (new versions are released at http://www.crummy.com/software/BeautifulSoup/#Download)
+    Typically this is /usr/lib/python2.5/ (varies depending upon your python version)
 
 Optional:
 a) To use the -g --graph option, you should install the "python-yapgvb" package.
