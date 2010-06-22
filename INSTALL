@@ -33,8 +33,11 @@ Required:
 4) Build YARA Python from ./depends/yara-python-1.4/
     (new versions are released at http://code.google.com/p/yara-project/downloads/list)
 
-5) Install BeautifulSoup to your python directory from ./depends/BeautifulSoup.py
+5) Install BeautifulSoup
     (new versions are released at http://www.crummy.com/software/BeautifulSoup/#Download)
+
+    If you use Ubuntu, you can install the python-beautifulsoup package.
+    Otherwise, you can copy ./depends/BeautifulSoup.py into your python lib directory.
     Typically this is /usr/lib/python2.5/ (varies depending upon your python version)
 
 Optional:
