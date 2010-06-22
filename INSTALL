@@ -43,7 +43,6 @@ Required:
 Optional:
 a) To use the -g --graph option, you should install the "python-yapgvb" package.
 
-b) Debugging/profiling: Heapy from http://guppy-pe.sourceforge.net/#Heapy
-
-c) Filetype identification: Magic (optional)
+b) Filetype identification: Magic (optional)
+    If you use Ubuntu, you can install the python-magic package.
 
