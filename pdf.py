@@ -497,8 +497,29 @@ class pdf:
 
     @staticmethod
     def applyFilter(input):
-        output = re.sub('^[\x00-\x19\x7f-\xff\n\s]*[\x00-\x19\x7f-\xff]','',input) #look for starting non-ascii characters
-        output = re.sub('[\x00-\x19\x7f-\xff][\x00-\x19\x7f-\xff\r\s]*$','',output) #look for trailing non-ascii characters
+        if len(input) > 10000000:
+            return input
+
+        for i in range(0,len(input)):
+            c = ord(input[i])
+            if 0 < c < 0x19 or 0x7f < c < 0xff or input[i] in ' \n\r':
+                pass #cut beginning non-ascii characters
+            else:
+                input = input[i:]
+                break
+
+        input = input[::-1] #reversed
+        for i in range(0,len(input)):
+            c = ord(input[i])
+
+            if 0 < c < 0x19 or 0x7f < c < 0xff or input[i] in ' \n\r':
+                pass  #cut trailing non-ascii characters
+            else:
+                input = input[i:]
+                break
+        output = input[::-1]
+        #output = re.sub('^[\x00-\x19\x7f-\xff\n\s]*[\x00-\x19\x7f-\xff]','',input) #look for starting non-ascii characters
+        #output = re.sub('[\x00-\x19\x7f-\xff\s]+$','',output) #look for trailing non-ascii characters
         return output
 
 def main(files):
