@@ -297,6 +297,9 @@ app.doc = {
 			}
 		}
 	},
+    Function : function(thefunc){
+        print (thefunc);
+    },
 };
 
 function my_collab(){
