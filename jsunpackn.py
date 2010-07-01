@@ -403,6 +403,8 @@ class jsunpack:
 
         if path.startswith('http') or path.startswith('//'):
             return re.sub('^[https]*:?//','',path)
+        if path.startswith('hcp:'):
+            return path
         if path.startswith('/'):
             if self.url.startswith('/'):
                 server = '127.0.0.1'
@@ -426,6 +428,9 @@ class jsunpack:
         return result
 
     def find_urls(self, data, tcpaddr = []):
+        '''returns JavaScript (if it exists)'''
+        jsdata = ''
+
         if data.find('http:') > -1:
             varurl = re.findall('var[^=]*=[\\\'" ]+(http:[^\'"\n]+)[\\\'"]',data,re.IGNORECASE)
             for i in varurl:
@@ -456,6 +461,13 @@ class jsunpack:
                 type = type.lower()
                 
                 i = self.build_url_from_path(i)
+                if i.startswith('hcp:'):
+                    lt = i.find('%3c')
+                    LT = i.find('%3C')
+                    if lt == -1 and LT > -1:
+                        lt = LT
+                    if lt > -1:
+                        jsdata += re.sub('%([a-fA-F0-9]{2})', lambda mo: convert(mo.group(1)), i[lt:])
                 self.rooturl[self.url].setChild(i,type)
                 self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[%s] %s' % (type,i))
         if data.find('<link ') > -1:
@@ -465,7 +477,7 @@ class jsunpack:
                 i = self.build_url_from_path(i)
 
                 self.rooturl[self.url].setChild(i,type)
-            
+        return jsdata            
 
     def strings(self,data):
         out = []
@@ -981,7 +993,7 @@ class jsunpack:
                 predecoded = pdfjs_header + predecoded
                 
             self.signature(predecoded,level,tcpaddr,isPDF)
-            self.find_urls(predecoded,tcpaddr)
+            jsinurls = self.find_urls(predecoded,tcpaddr)
 
             if self.OPTIONS.nojs: #don't decode anything
                 decoded = ''
@@ -1040,6 +1052,8 @@ class jsunpack:
                 decoded = '' # don't do any more decoding
 
             level += 1
+            if jsinurls:
+                decoded += jsinurls
             predecoded = decoded
 
         #self.signature(detect_txt,0,tcpaddr,isPDF) #signature accross all content
