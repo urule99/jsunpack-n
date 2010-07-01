@@ -859,6 +859,9 @@ class jsunpack:
         return hostname,dstport
 
     def fetch(self,url):
+        if url.startswith('hcp:'):
+            return 'Not fetching (hcp url)',''
+
         self.url = canonicalize(url)
 
         #self.rooturl must already have an entry for url
