@@ -393,4 +393,4 @@ var prompt = function(){ return 1; }
 window.prompt = prompt;
 var confirm = function(){ return 1; }
 window.confirm = confirm;
-
+var Run = eval;
