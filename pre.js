@@ -393,4 +393,8 @@ var prompt = function(){ return 1; }
 window.prompt = prompt;
 var confirm = function(){ return 1; }
 window.confirm = confirm;
-var Run = eval;
+var Run = function(arg){
+    print ('/* Run with :');
+    print (arg);
+    print ('*/');
+};
