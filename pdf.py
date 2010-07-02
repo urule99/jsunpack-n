@@ -8,9 +8,10 @@ Jan 19, 2010
 Command line usage:
 $ ./pdf.py [pdf file]
 '''
-import os, re, sys, zlib, glob, base64
+import os, re, sys, zlib, glob, base64, binascii
+import cStringIO, Crypto.Cipher.ARC4, struct, string
 import lzw, html
-import cStringIO
+from hashlib import md5
 
 class pdfobj:
     #this class parses single "1 0 obj" up till "endobj" elements
@@ -44,7 +45,8 @@ class pdfobj:
         #xfa:contenttype
 
         self.hparser = html.Parser(pdfparseconfig)
-        self.parseObject()
+        if self.indata:
+            self.parseObject()
 
     def __repr__(self):
         out = 'pdfobj %s\n' % (self.keynum)
@@ -59,6 +61,152 @@ class pdfobj:
         if self.isDelayJS:
             out += '\tisDelayJS'
         return out
+    def parseTag(self,tag,stream):
+        '''
+            Input:  tag is the contents of /Tag1 value1 /Tag2 value2
+                    stream is (optional) contents between stream and endstream
+            Output: self.tags and self.tagstream
+            If stream is not set, then we should set it before it gets assigned to tagstream
+        '''
+        state = 'INIT'
+        curtag = ''
+        curval = ''
+        multiline = 0 # for tracking multiline in TAGVALCLOSED state
+        uncleaned_tags = [] #output of statemachine
+
+        for index in range(0,len(tag)):
+            if state == 'INIT':
+                if tag[index] == '/':
+                    state = 'TAG'
+            elif state == 'TAG':
+                if re.match('[a-zA-Z0-9#]',tag[index]):
+                    curtag += tag[index]
+                elif tag[index] == '/':
+                    if curtag:
+                        uncleaned_tags.append([state,curtag,'']) # no tag value
+                        curtag = ''
+                    state = 'TAG' 
+                else:
+                    state = 'TAGVAL' 
+                    curval = ''
+            elif state == 'TAGVAL': 
+                if tag[index] == '/' and (not tag[index-1] == '\\\\'): # its a new tag
+                    if curtag or curval:
+                        uncleaned_tags.append([state,curtag,curval])
+                    state = 'TAG'
+                    curtag = curval = ''
+                elif tag[index] == '(':
+                    #what do we do with curval? toss it
+                    if re.match('^[\s\[\]\(\)<>]*$',curval): # look for any characters that indicate this isn't a TAGVALCLOSED
+                        state = 'TAGVALCLOSED'
+                        multiline = 0
+
+                        if len(curval) > 0:
+                            #print '\ttossed out %d characters (%s) because we entered TAGVALCLOSED state' % (len(curval),curval)
+                            curval = ''
+                    else: #keep processing?
+                        curval += tag[index]
+                elif tag[index] == '<' or tag[index] == '>':
+                    pass
+                elif tag[index] == ' ' and curval == '':
+                    pass #already empty
+                else:
+                    curval += tag[index] 
+            elif state == 'TAGVALCLOSED':
+                #in this state we know that the code started with (... therefore we can't end until we see )
+                #the code could also have enclosed ( chars; therefore, this algorithm is greedy
+                grabMore = 0 # if grabMore is set to 1, it means the tag isn't closing yet
+                if tag[index] == ')': #possible closing tag
+                    if tag[index-1] == '\\': #just kidding its not closing 
+                        grabMore = 1
+                    elif multiline: #tricky cases
+                        #either a newline or "(" character leads us here.
+
+                        #IGNORE THESE
+                        #if re.match('^\)\s*($|\n\s*([^\)\s])',tag[index:]):
+                        #    #yep its closing time
+                        #    #this regex ensures there isn't another following close tag
+                        #res = re.match('^(.*)\)  $',tag[index:])
+
+                        
+                        if index+1 < len(tag):
+                            indexParen = tag[index+1:].find(')')
+                            #indexNewL = tag[index+1:].find('\n')
+                            if indexParen > -1: # and (indexNewL == -1 or indexNewL > indexParen):
+                                if not re.match('^\s*\/[A-Za-z0-9]+\s*\(', tag[index+1:]):
+                                    grabMore = 1        
+
+                    if grabMore:
+                        curval += tag[index]
+                    else: #ok ok, its simply closing
+                        uncleaned_tags.append([state,curtag,curval])
+                        state = 'INIT'
+                        #print '%s (TAGVALCLOSED), length=%d bytes with %d/%d completed (around %s)' % (curtag, len(curval),index,len(tag), tag[index-20:index+20])
+                        curtag = curval = ''
+                elif tag[index] == '(': #tag[index] == '\n' 
+                    multiline = 1
+                    curval += tag[index]
+                else:
+                    curval += tag[index]
+            else:
+                print 'invalid state in parseTag: %s' % state
+        if curtag: #an ending tag with NO final separator
+            uncleaned_tags.append(['ENDTAG',curtag,curval])
+
+        #clean uncleaned_tags and put in self.tags instead
+        for source,tagtype,tagdata in uncleaned_tags:
+            newtagtype = pdfobj.fixPound(tagtype)
+            if newtagtype != tagtype:
+                self.hiddenTags += 1
+                tagtype = newtagtype
+
+            #newlines in tagtype? ONLY for state != TAGVALCLOSED
+            if source != 'TAGVALCLOSED':
+                #its okay to replace newlines, spaces, tabs here
+                tagdata = re.sub('[\s\r\n]+',' ',tagdata)
+
+            if re.match('^(\\\\[0-9]{3}\s*)+$',tagdata): #ie. need to convert \040 == 0x20
+                tagdata = re.sub('\\\\([0-9]{3})', lambda mo: chr(int(mo.group(1),8)), tagdata)
+
+            tagdata = re.sub('\\\\n','\n', tagdata)
+            tagdata = re.sub('\\\\t','\t', tagdata)
+            tagdata = re.sub('\\\\(.)','\\1', tagdata)
+
+            if not stream and source == 'TAGVALCLOSED':
+                stream = tagdata
+                #print 'set stream to %s; %s; %d bytes' % (source, tagtype, len(tagdata))
+
+            self.tags.append([source,tagtype,tagdata])
+        self.tagstream = stream
+
+        if pdf.DEBUG:
+            print 'obj %s: ' % (self.keynum)
+            for source,tagtype,tagdata in self.tags:
+                
+                tagtxt = '\ttag %s' % re.sub('\n','',tagtype)  
+                if len(tagdata) > 30: 
+                    tagtxt += ' = [data %d bytes]' % len(tagdata) 
+                elif tagdata:
+                    tagtxt += ' = '
+                    for c in tagdata:
+                        if c in string.printable and c != '\n':
+                            tagtxt += c
+                        else:
+                            tagtxt += '\\x%02x' % (ord(c))
+                print '%-50s (%s)' % (tagtxt,source) 
+                #end 
+
+    def parseChildren(self):
+        '''
+            Input: self.tags (must be populated)
+            Output: self.children
+        '''
+        for state,k,kval in self.tags:
+            hasRef = re.search('^(\d+)\s+(\d+)\s+R',kval)
+            if hasRef:
+                objkey = hasRef.group(1)+' '+ hasRef.group(2)
+                self.children.append([k,objkey])
+
     def parseObject(self):
         #previously this was non-greedy, but js with '>>' does mess things up in that case
         #to solve the problem, do both
@@ -79,77 +227,9 @@ class pdfobj:
             return
 
         for tag,stream in tags:
-            tag = re.sub('[\s\r\n]+',' ',tag)
-            tagarray = tag.split('/')
+            self.parseTag(tag,stream)
+            self.parseChildren()
 
-            #if tagarray elements contain legitimate '/' characters, we need to rejoin them back together
-            multiline = '' #This should remain null, UNLESS we find multiline javascript
-            multiline_key = ''
-            for t in tagarray:
-                if not multiline: #new (no previous state)
-                    #both oneliner and multiliner are looking for JavaScript
-                    valid_oneliner = re.match('^([^\s(]+)\s*[(](.*[^\\\\])[)]\s*$',t)
-                    valid_multiliner = re.search('^(\S+)\s+[(](.*)$',t)
-                    if valid_oneliner:
-                        orig_tagkey,tagvalue = valid_oneliner.group(1), valid_oneliner.group(2)
-
-                        tagkey = pdfobj.fixPound(orig_tagkey)
-                        if tagkey != orig_tagkey:
-                            self.hiddenTags += 1
-
-                        if re.match('^(\\\\[0-9]{3}\s*)+$',tagvalue): #ie. need to convert \040 == 0x20
-                            tagvalue = re.sub('\\\\([0-9]{3})', lambda mo: chr(int(mo.group(1),8)), tagvalue)
-                        tagvalue = re.sub('\\\\n','\n', tagvalue)
-                        tagvalue = re.sub('\\\\t','\t', tagvalue)
-                        tagvalue = re.sub('\\\\(.)','\\1', tagvalue)
-
-                        self.tags.append([tagkey,tagvalue])
-                        if not stream:
-                            #try decompress first?
-                            stream = tagvalue
-                            #if pdf.DEBUG: print 'set stream = %s' % tagvalue
-                    elif valid_multiliner:
-                        #cant use '/' as a delimiter
-                        #stream contains escaped code
-                        multiline = t
-                        orig_multiline_key = valid_multiliner.group(1)
-                        multiline_key = pdfobj.fixPound(orig_multiline_key) 
-                        if orig_multiline_key != multiline_key:
-                            self.hiddenTags += 1
-                        
-                        self.tags.append([multiline_key,valid_multiliner.group(2)])
-                    else: # not a JavaScript tag
-                        simpleTag = re.search('^(\S+)[\s<>]*(.*?)[\s<>]*$',t)
-                        if simpleTag:
-                            orig_tagkey = simpleTag.group(1)
-                            tagkey = pdfobj.fixPound(orig_tagkey)
-                            if orig_tagkey != tagkey:
-                                self.hiddenTags += 1
-                            
-                            self.tags.append([tagkey,simpleTag.group(2)])
-                        
-                else: #multiline continuing 
-                    
-                    k, kval = self.tags[len(self.tags)-1]
-                    self.tags[len(self.tags)-1] = [k, kval + '/' + t]
-            if multiline: #multiline ending
-                #find the close to the void via a ')' character, it could also be followed by /S /JavaScript, other tags
-                k, tmpstream = self.tags[len(self.tags)-1]
-                tmpstream = re.sub('([^\\\\])[)]\s*(\/[a-zA-Z]*\s*)*$','\\1', tmpstream)
-                if re.match('^(\\\\[0-9]{3}\s*)+$',tmpstream): #ie. need to convert \040 == 0x20
-                    tmpstream = re.sub('\\\\([0-9]{3})', lambda mo: chr(int(mo.group(1),8)), tmpstream)
-                tmpstream = re.sub('\\\\n','\n', tmpstream)
-                tmpstream = re.sub('\\\\t','\t', tmpstream)
-                tmpstream = re.sub('\\\\(.)','\\1', tmpstream)
-                self.tags[len(self.tags)-1] = [k,tmpstream]
-
-                
-                #Trailing unwanted tags
-                #tags[fixPound(voidkey)] = re.sub('\/(S|JavaScript)\s*$','', tags[fixPound(voidkey)])
-                #tags[fixPound(voidkey)] = re.sub('\/(S|JavaScript)\s*$','', tags[fixPound(voidkey)])
-                stream = tmpstream
-
-            self.tagstream = stream
     @staticmethod
     def fixPound(i):
         #returns '#3a' substituted with ':', etc
@@ -232,6 +312,7 @@ class pdf:
         self.objects = {} 
         self.pages = []
         self.list_obj = []
+        self.encr_key = ''
 
     def parse(self):
 
@@ -256,27 +337,69 @@ class pdf:
             for obj in objs:
                 #fill all objects
                 key = obj[0] + ' ' + obj[1]
-                self.list_obj.append(key)
+                if not key in self.list_obj:
+                    self.list_obj.append(key)
                 self.objects[key] = pdfobj(key,obj[2])
+
+            trailers = re.findall('trailer[\s\n]*<<(.*?)>>',self.indata,re.MULTILINE|re.DOTALL)
+            for trailertags in trailers:
+                trailerstream = '' #no stream in trailer
+                trailerobj = pdfobj('trailer','') #empty second parameter indicates not to do an object parse
+                trailerobj.parseTag(trailertags,trailerstream)
+                trailerobj.parseChildren()
+
+                for tag, value in trailerobj.children:
+                    if tag == 'Encrypt':
+                        encr = {}
+                        if value in self.objects:
+                            for enc_state, enc_tag, enc_value in self.objects[value].tags:
+                                encr[enc_tag] = enc_value
+
+                        ###try: except: for this entire section
+                        padding = binascii.unhexlify('28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A') 
+                        id = ''
+                        for iState,isID,idVal in trailerobj.tags:
+                            if isID == 'ID':
+                                id = re.sub('[^0-9a-fA-F]','',idVal)
+                                if id:
+                                    try:
+                                        id = binascii.unhexlify(id)
+                                    except:
+                                        id = ''
+
+                        if 'P' in encr and 'O' in encr:
+                            permissions = struct.pack('L', int(encr['P']) & 0xffffffff)
+                            
+                            enc_in = ('%s%s%s%s' % (padding, encr['O'], permissions, id))
+                            #print binascii.hexlify(padding), binascii.hexlify(encr['O']), binascii.hexlify(permissions), binascii.hexlify(id)
+                            
+                            self.encr_key = md5('%s%s%s%s' % (padding, encr['O'], permissions, id)).digest()[0:5]
+                            #print 'encrKey=',self.encr_key
+                            cipher = Crypto.Cipher.ARC4.new(self.encr_key)
+                            if pdf.DEBUG and 'U' in encr:
+                                if encr['U'] == cipher.encrypt(padding):
+                                    print 'good pdf encrypt key'
+                                else:
+                                    print 'bad pdf encrypt key'
 
             for key in self.list_obj: #sorted(self.objects.keys()):
                 #set object options
+                if self.encr_key:
+                    if self.objects[key].tagstream:
+                        self.objects[key].tagstream = self.decryptRC4(self.objects[key].tagstream,key)
+                        #print 'trying to decrypt tagstream(%d) on %s' % (len(self.objects[key].tagstream),key)
+                        #print 'the input is: ', self.objects[key].tagstream
+                        #print 'the output is:', self.decryptRC4(self.objects[key].tagstream,key)
 
-                for k,kval in self.objects[key].tags:
-                    hasRef = re.search('^(\d+)\s+(\d+)\s+R',kval)
-                    if hasRef:
-                        objkey = hasRef.group(1)+' '+ hasRef.group(2)
-                        self.objects[key].children.append([k,objkey])
-
-                for k, kval in self.objects[key].tags:
+                for kstate, k, kval in self.objects[key].tags:
                     if k == 'OpenAction':
                         self.objects[key].isDelayJS = True
                         for type,childkey in self.objects[key].children:
                             if type == 'OpenAction':
                                 if childkey in self.objects:
                                     self.objects[childkey].isDelayJS = True
-                                else:
-                                    print 'erorr: not a valid object for child'
+                                elif pdf.DEBUG:
+                                    print 'error: not a valid object for child (%s)' % (childkey)
 
                     if k == 'JS' or k == 'JavaScript':
                         self.objects[key].isJS = True
@@ -319,7 +442,7 @@ class pdf:
                     if k in enum_properties:
                             value = kval
                             value = re.sub('[\xff\xfe\x00]','',value)
-                            isReference = re.match('^\d+\s+\d+\s+R$',value)
+                            isReference = re.match('^\s*\d+\s+\d+\s+R\s*$',value)
                             if isReference:
                                 validReference = False
                                 for type, childkey in self.objects[key].children:
@@ -333,22 +456,17 @@ class pdf:
                             else:
                                 #not a reference, use the direct value
                                 value = re.sub('\'','\\x27',value)
-                                self.objects[key].staticScript += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (k.lower(),value,k.lower(),k.lower())
-                                self.objects[key].staticScript += 'app.doc.%s = String(\'%s\');\n' % (k.lower(),value)
+                                self.objects[key].staticScript += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (k.lower(),pdf.do_hexAscii(value),k.lower(),k.lower())
+                                self.objects[key].staticScript += 'app.doc.%s = String(\'%s\');\n' % (k.lower(),pdf.do_hexAscii(value))
                     
-                #try this before doing anything
-                #try:
-                #    self.objects[key].tagstream = zlib.decompress(self.objects[key].tagstream)
-                #except zlib.error, msg:
-                #    pass 
-
-                for k, kval in self.objects[key].tags:
+                for kstate, k, kval in self.objects[key].tags:
                     if k == 'FlateDecode' or k == 'Fl': 
                         try:
                             self.objects[key].tagstream = zlib.decompress(self.objects[key].tagstream)
                         except zlib.error, msg:
                             if pdf.DEBUG:
-                                print 'failed to decompress object %s' % (key)
+                                print 'failed to decompress object %s (inlen %d)' % (key, len(self.objects[key].tagstream))
+                                print self.objects[key].tagstream
                             self.objects[key].tagstream = '' #failed to decompress
 
                     if k == 'ASCIIHexDecode' or k == 'AHx':
@@ -375,6 +493,21 @@ class pdf:
                     print 'PDF file has embedded MZ file'
         else:
             print 'Fatal error: pdf has no objects in ' + self.infile
+
+    def decryptRC4(self,data,key):
+        '''
+            Input: data is the data to decrypt, key is the obj information of the form '5 0'
+            Assumptions: self.encr_key is set
+            Output: returns string of decrypted data
+        '''
+        try:
+            obj, rev = key.split(' ')
+            decrypt_key = md5(self.encr_key+struct.pack('L',int(obj))[0:3]+struct.pack('L',int(rev))[0:2]).digest()[0:10]
+            cipher = Crypto.Cipher.ARC4.new(decrypt_key)
+            return cipher.decrypt(data)
+        except:
+            return ''
+
 
     def is_valid(self):
         if self.indata.startswith('%PDF-') or self.indata.startswith('%%PDF-'):
@@ -409,7 +542,7 @@ class pdf:
                         subj = re.sub('[\x00-\x1f\x7f-\xff]','',subj)
                         out += 'zzzannot2["%s"] = {subject:\'%s\'};\n' % (self.objects[jskey].knownName,subj) #getAnnot
                 for property in self.objects[jskey].doc_properties:
-                    out += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (property,value,property,property)
+                    out += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (property,pdf.do_hexAscii(value),property,property)
         for page in self.pages:
             if page in self.objects:
                 lines = self.objects[page].tagstream.split('\n')
@@ -419,7 +552,7 @@ class pdf:
                     for hexdata in textBE:
                         words = hexdata.split(' ')
                         for word in words:
-                            out += 'c.push("%s"); ' % (re.sub('([^a-zA-Z0-9])', lambda m: '\\x%02x' % ord(m.group(1)),word))
+                            out += 'c.push("%s"); ' % (pdf.do_hexAscii(word))
                 out += 'zzzpages.push(c); this.numPages = zzzpages.length;\n'
                 pagenow += 1
         if out:
@@ -434,7 +567,9 @@ class pdf:
                 #found embedded file
                 #run htmlparsing
                 parsed_header, parsed_data = self.objects[jskey].hparser.htmlparse(self.objects[jskey].tagstream)
+                parsed_data = re.sub('&lt;','<',parsed_data)
                 parsed_data = parsed_header + parsed_data
+                self.objects[jskey].tagstream = parsed_data
 
                 if pdf.DEBUG:
                     if len(parsed_data) > 0:
@@ -469,14 +604,14 @@ class pdf:
                 '''
                     
 
-            if self.objects[jskey].isJS:
-                if pdf.DEBUG:
-                    print 'Found JavaScript in %s (%d bytes)' % (jskey, len(self.objects[jskey].tagstream))
-                out += self.objects[jskey].tagstream
-            elif self.objects[jskey].isDelayJS:
+            if self.objects[jskey].isDelayJS: #do this first incase the tag has /OpenAction /JS (funct())
                 if pdf.DEBUG:
                     print 'Found JavaScript (delayed) in %s (%d bytes)' % (jskey, len(self.objects[jskey].tagstream))
                 delayout += self.objects[jskey].tagstream
+            elif self.objects[jskey].isJS:
+                if pdf.DEBUG:
+                    print 'Found JavaScript in %s (%d bytes)' % (jskey, len(self.objects[jskey].tagstream))
+                out += self.objects[jskey].tagstream
 
             if pdf.DEBUG:
                 if self.objects[jskey].isJS or self.objects[jskey].isDelayJS:
@@ -493,7 +628,11 @@ class pdf:
                     if pdf.DEBUG:
                         print 'Sloppy PDF parsing found %d bytes of JavaScript' % (len(out))
 
-        return out+delayout, headersjs
+        return re.sub('\\x00','',out+delayout), headersjs
+
+    @staticmethod
+    def do_hexAscii(input):
+        return re.sub('([^a-zA-Z0-9])', lambda m: '\\x%02x' % ord(m.group(1)),input)
 
     @staticmethod
     def applyFilter(input):
@@ -518,6 +657,7 @@ class pdf:
                 input = input[i:]
                 break
         output = input[::-1]
+
         #output = re.sub('^[\x00-\x19\x7f-\xff\n\s]*[\x00-\x19\x7f-\xff]','',input) #look for starting non-ascii characters
         #output = re.sub('[\x00-\x19\x7f-\xff\s]+$','',output) #look for trailing non-ascii characters
         return output

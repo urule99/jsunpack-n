@@ -46,7 +46,7 @@ except ImportError:
     ENABLE_NIDS = False
 
 class jsunpack:
-    version = "0.3.2b (beta)"
+    version = "0.3.2c (beta)"
     defaultReferer = 'www.google.com/trends/hottrends' #used by active fetching only
     ips = []
     

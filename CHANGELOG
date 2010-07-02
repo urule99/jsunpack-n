@@ -1,13 +1,16 @@
 Blake Hartstein
 http://jsunpack.jeek.org/
 
-This is Beta release of jsunpack-network (jsunpackn) version 0.3.2b
+This is Beta release of jsunpack-network (jsunpackn) version 0.3.2c
 
 RELEASE NOTES:
 
-1) bug fixes
+Updates 2010-07-02 version 0.3.2c
+
+1) encrypted PDF handling and various PDF parsing improvements
 2) added global 'maxruntime' option to limit cumulative processing and raise a suspicious alert (off by default)
 3) added $CURDATE options.config output option
+4) re-enabled -d OUTDIR command line output option
 
 Updates 2010-05-20 version 0.3.2b
 
