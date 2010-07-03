@@ -40,6 +40,11 @@ Required:
     Otherwise, you can copy ./depends/BeautifulSoup.py into your python lib directory.
     Typically this is /usr/lib/python2.5/ (varies depending upon your python version)
 
+6) Install Crypto.Cipher (for encrypted PDFs) from ./depends/pycrypto-2.1.0/
+    From the ./depends/pycrypto-2.1.0/ directory
+    $ python setup.py build
+    $ python setup.py install
+
 Optional:
 a) To use the -g --graph option, you should install the "python-yapgvb" package.
 
