@@ -39,6 +39,7 @@ function my_navigator(){
 	this.userLanguage = String("en ");
 	this.javaEnabled = function(){ return true; }
     this.taintEnabled = function(){ return 0; }
+    this.mimeTypes = {};
     this.plugins = my_plugins;
 }
 var navigator= new my_navigator();
