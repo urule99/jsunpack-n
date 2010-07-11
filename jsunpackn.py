@@ -801,6 +801,7 @@ class jsunpack:
             else:
                 method = host = uri = referer = ''
                 print '[warning] http_request information not available for ', tcp.addr
+                continue
 
             code, data, gzip, chunk, redir, lastModified = http_response[i]
             if chunk:
