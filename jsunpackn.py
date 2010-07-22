@@ -1307,7 +1307,8 @@ def main():
                         js.rooturl[url].dbgobj.totalDetectTime(),
                         js.rooturl[url].dbgobj.numberTotalLaunches()
                         )
-                    print '[debug] average seconds per call is %.02f\n' % (js.rooturl[url].dbgobj.totalJsTime()/js.rooturl[url].dbgobj.numberTotalLaunches())
+                    if js.rooturl[url].dbgobj.numberTotalLaunches() > 0:
+                        print '[debug] average seconds per call is %.02f\n' % (js.rooturl[url].dbgobj.totalJsTime()/js.rooturl[url].dbgobj.numberTotalLaunches())
                     firstCase = 0
 
                 if js.rooturl[url].dbgobj.jsTime() > 3:
