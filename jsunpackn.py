@@ -892,10 +892,13 @@ class jsunpack:
             opener = urllib2.build_opener()
             remote = opener.open(request).read()
 
-            fname = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, remote,'fetch')
-            self.rooturl[self.url].status += '\tsaved %d bytes %s\n' % (len(remote),fname)
             if len(remote) > 0:
+                if len(remote) > 31457280:
+                    return 'Not fetching (large file)',''                   
                 try:
+                    fname = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, remote,'fetch')
+                    self.rooturl[self.url].status += '\tsaved %d bytes %s\n' % (len(remote),fname)
+
                     resolved = socket.gethostbyname(hostname)
                     self.rooturl[self.url].tcpaddr = [['0.0.0.0',0],[resolved,dstport]]
                 except:
