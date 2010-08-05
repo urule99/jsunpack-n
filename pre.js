@@ -183,8 +183,8 @@ var document= 	{
 		getElementsByTagName : function(name){ if (name in namezzz){return namezzz[name];} return []; },
 		createEventObject : function(evt){ /* object returned has srcElement property */},
 		};
-document.title = 'My Title';
-document.location = 'http://localhost/';
+document.title = String('My Title');
+document.location = String('http://localhost/');
 document.body = new my_element();
 document.cookie = String();
 document.documentElement = new Array();
