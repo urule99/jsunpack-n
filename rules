@@ -199,7 +199,7 @@ rule MSsetSlice
 {
 	meta:
 		ref = "CVE-2006-3730"
-		impact = 7
+		impact = 4
 	strings:
 		$cve20063730_1 = "setSlice" nocase fullword
 		$cve20063730_2 = "WebViewFolderIcon.WebViewFolderIcon.1" nocase fullword
