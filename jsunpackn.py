@@ -24,7 +24,7 @@
 from BeautifulSoup import BeautifulSoup
 import sys, os, re, time, subprocess, struct
 import StringIO, string, gzip, signal, urllib2, socket
-import ConfigParser
+import ConfigParser, random
 from optparse import OptionParser
 from hashlib import sha1
 
@@ -886,10 +886,23 @@ class jsunpack:
         try:
             hostname,dstport = self.hostname_from_url(url)
 
+            if self.OPTIONS.proxy and (not self.OPTIONS.currentproxy):
+                proxies = self.OPTIONS.proxy.split(',')
+                self.OPTIONS.currentproxy = proxies[random.randint(0,len(proxies)-1)]
+                if not self.OPTIONS.quiet:
+                    print '[fetch config] random proxy %s' % (self.OPTIONS.currentproxy)
+
             request = urllib2.Request('http://'+url)
             request.add_header('Referer', 'http://'+refer)
             request.add_header('User-Agent', 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.0)')
-            opener = urllib2.build_opener()
+
+            if self.OPTIONS.currentproxy:
+                if not self.OPTIONS.quiet:
+                    print '[fetch config] currentproxy %s' % (self.OPTIONS.currentproxy)
+                proxyHandler = urllib2.ProxyHandler({'http': 'http://%s' % (self.OPTIONS.currentproxy) }) 
+                opener = urllib2.build_opener(proxyHandler)
+            else:
+                opener = urllib2.build_opener()
             remote = opener.open(request).read()
 
             if len(remote) > 0:
@@ -1169,6 +1182,12 @@ def main():
     parser.add_option('-a', '--active', dest='active',
         help='actively fetch URLs (only for use with pcap/file/url as input)', #default=False,
         action='store_true')
+    parser.add_option('-p', '--proxy', dest='proxy',
+        help='use a random proxy from this list (comma separated)', 
+        action='store')
+    parser.add_option('-P', '--currentproxy', dest='currentproxy',
+        help='use this proxy and ignore proxy list from --proxy',
+        action='store')
     parser.add_option('-q', '--quiet', dest='quiet',
         help='limited output to stdout', #default=False,
         action='store_true')
