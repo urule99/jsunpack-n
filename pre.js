@@ -358,6 +358,7 @@ var util = {
 };
 var zzzpages = [];
 this.numPages = 0;
+this.pageNum = 0;
 var getPageNthWord = function(page,word) { return zzzpages[page][word]; }
 var getPageNumWords = function(page) { print ("//info getPageNumWords("+page+")"); return zzzpages[page].length; }
 
