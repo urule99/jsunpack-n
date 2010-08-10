@@ -297,6 +297,11 @@ app.doc = {
 				}
 			}
 		}
+        if (arguments.length == 0){
+            if (zzzannot.length > 0){
+                return zzzannot[0];
+            }
+        }
 	},
     Function : function(thefunc){
         print (thefunc);
