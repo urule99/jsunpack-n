@@ -51,6 +51,7 @@ var app = {
 	setTimeOut:function(txt,wait){ eval(txt); print ("; //jsunpack.called setTimeOut with "+txt + ', ' + wait);},
 	clearTimeOut:function(a){},
 	eval:function(a){eval(a);},
+    alert:function(a){ print ("/*** app.alert " + a + "*/"); },
 };
 
 function my_activex(){
@@ -306,6 +307,9 @@ app.doc = {
     Function : function(thefunc){
         print (thefunc);
     },
+    printSeps : function(){
+        print ("//alert CVE-2010-4091 doc.printSeps access");
+    },
 };
 
 function my_collab(){
@@ -319,6 +323,8 @@ var syncAnnotScan = app.doc.syncAnnotScan;
 app.doc.Collab = Collab;
 app.doc.media = this.media;
 app.media = this.media;
+var doc = app.doc;
+var printSeps = app.doc.printSeps;
 this.exportDataObject = function(){
     print ("//warning CVE-NO-MATCH call to exportDataObject, possible social engineering");
 };

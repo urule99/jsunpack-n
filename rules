@@ -42,6 +42,17 @@ rule SpellcustomDictionaryOpen: decodedPDF
 	condition:
 		1 of them
 }
+rule printSeps: decodedPDF
+{
+    meta:
+        ref = "CVE-2010-4091"
+        hide = true
+    strings:
+        $cve20104091_1 = "doc.printSeps"
+        $cve20104091_2 = "this.printSeps"
+    condition:
+        1 of them
+}
 /* 
 
 //This rule is not strong enough, handled by detecting createElement x 100 in pre.js now
