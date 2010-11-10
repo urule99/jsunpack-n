@@ -7,7 +7,7 @@ Required:
 1) Build pynids (nids) from ./depends/pynids-0.6.1/.
     (new versions are released at http://jon.oberheide.org/pynids/)
 	To compile pynids, you need the following ubuntu packages:
-	pkg-config python-dev libgtk2.0-dev libnet1-dev
+	libpcap-dev pkg-config python-dev libgtk2.0-dev libnet1-dev
 
 	from ./depends/pynids-0.6.1/ directory
 	$ python setup.py build
