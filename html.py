@@ -105,6 +105,7 @@ class Parser:
                         elif val == 'contents':
                             try: now['contents'] = string.join(map(str,htm.contents))
                             except KeyError, e: now['contents'] = ''
+                            except UnicodeEncodeError, e: now['contents'] = string.join(map(str,str(htm.contents)))
                         elif val == 'name':
                             try: now['name'] = htm.name
                             except KeyError, e: now['name'] = ''
