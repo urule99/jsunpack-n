@@ -406,6 +406,9 @@ var prompt = function(){ return 1; }
 window.prompt = prompt;
 var confirm = function(){ return 1; }
 window.confirm = confirm;
+window.top = window;
+window.self = window;
+window.window = window;
 var Run = function(arg){
     print("//warning CVE-2010-1885 possible hcp URL with Run access"); 
     print ('/* Run arguments:');

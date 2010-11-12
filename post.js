@@ -36,7 +36,8 @@ for (var i in this){
 		}
 	}
     if (typeof this[i] == 'string' && i != 'documenttxt' && i != 'i' && i != 'txtzzz'){
-        if (escape(this[i]).match(/%u/)){
+        //if (escape(this[i]).match(/^(%u.{4})+(%..)*$/)){ //STRICT SHELLCODE DETECTION (disabled by default)
+        if (escape(this[i]).match(/%u/)){ //LOOSE SHELLCODE DETECTION (enabled by default)
             var prelen = this[i].length;
             if (prelen > 100){
                 this[i] = this[i].replace(/(.)\1{10}/g,'');
