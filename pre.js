@@ -129,7 +129,11 @@ function my_element(){
     }
     this.createobject = this.CreateObject;
     this.appendChild=function (obj1){
-	//This is an object, may be more interesting if we extract attributes
+        //This is an object, may be more interesting if we extract attributes
+        if ('text' in obj1){
+            print ('//appendChild text');
+            print (obj1.text);
+        }
     }
 }
 var exploits = [];
