@@ -44,7 +44,7 @@ class cmdline_filler:
             'active':True,
             'interface':'',
             'nojs':False,
-            'log_ips':'/var/www/iprep_maliciousips.txt',
+            'log_ips':'./maliciousips.txt',
             'pre':'./pre.js',
             'post':'./post.js',
             'htmlparse':'./htmlparse.config',
