@@ -98,8 +98,10 @@ def main(userdata):
     print 'Instead, you could go through each url and look at the decodings that it creates' 
     for url in js.rooturl:
         print 'Looking at key %s, has %d files and %d messages, that follow:' % (url, len(js.rooturl[url].files), len(js.rooturl[url].msg))
-        print 'files array=%s' % (str(js.rooturl[url].files))
-        print 'msg array=%s' % (str(js.rooturl[url].msg))
+        for type,hash,data in js.rooturl[url].files:
+            print 'file              type=%s, hash=%s, data=%d bytes' % (type,hash,len(data))
+        for printable,impact,msg in js.rooturl[url].msg:
+            print 'output message    printable=%d, impact=%d, msg=%s' % (printable,impact,msg)
     
 if __name__ == "__main__":
     main('eval("var a=123;");')
