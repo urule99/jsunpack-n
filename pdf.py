@@ -213,7 +213,7 @@ class pdfobj:
         
         #if pdf.DEBUG:
         #    print '\tstarting object len %d' % len(self.indata)
-        tags = re.findall('<<(.*)>>[\s\r\n%]*(?:stream[\s\r\n]*(.*?)\n?endstream)?',self.indata,re.MULTILINE|re.DOTALL)
+        tags = re.findall('<<(.*)>>[\s\r\n%]*(?:stream[\s\r\n]*(.*?)\n?endstream)?',self.indata,re.MULTILINE|re.DOTALL|re.IGNORECASE)
         if tags:
             for tag,stream in tags:
                 gttag = tag.find('>>')
@@ -221,7 +221,7 @@ class pdfobj:
 
                 if 0 < gttag < tag.find('stream'):
                     #this means that there was an improper parsing because the tag shouldn't contain a stream object
-                    tags = re.findall('<<(.*?)>>[\s\r\n%]*(?:stream[\s\r\n]*(.*?)\n?endstream)?',self.indata,re.MULTILINE|re.DOTALL)
+                    tags = re.findall('<<(.*?)>>[\s\r\n%]*(?:stream[\s\r\n]*(.*?)\n?endstream)?',self.indata,re.MULTILINE|re.DOTALL|re.IGNORECASE)
                     
         if not tags: #Error parsing object!
             return
@@ -437,7 +437,7 @@ class pdf:
                             self.pages.append(key)
 
                     #populate pdfobj's doc_properties with those that exist
-                    enum_properties = ['Title','Author','Subject','Keywords','Creator','Producer','CreationDate','ModDate']
+                    enum_properties = ['Title','Author','Subject','Keywords','Creator','Producer','CreationDate','ModDate','plot']
 
                     if k in enum_properties:
                             value = kval
@@ -510,7 +510,7 @@ class pdf:
 
 
     def is_valid(self):
-        if self.indata.startswith('%PDF-') or self.indata.startswith('%%PDF-'):
+        if 0 <= self.indata.find('%PDF-') <= 1024:
             return True
         return False
         
