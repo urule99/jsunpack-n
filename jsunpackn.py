@@ -95,7 +95,11 @@ class jsunpack:
 
         self.OPTIONS.outdir = self.replaceCurrentDate(self.OPTIONS.outdir)
         self.OPTIONS.tmpdir = self.replaceCurrentDate(self.OPTIONS.tmpdir)
+        if not hasattr(self.OPTIONS,'log_ips'):
+            self.OPTIONS.log_ips = ''
         self.OPTIONS.log_ips = self.replaceCurrentDate(self.OPTIONS.log_ips)
+        if not hasattr(self.OPTIONS,'decoded'):
+            self.OPTIONS.decoded = ''
         self.OPTIONS.decoded = self.replaceCurrentDate(self.OPTIONS.decoded)
 
         self.hparser = html.Parser(self.OPTIONS.htmlparseconfig)
