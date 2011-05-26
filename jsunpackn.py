@@ -385,7 +385,7 @@ class jsunpack:
                     else:
                         self.rooturl[self.url].log(self.OPTIONS.veryverbose,-1,'%s' % re.sub('\n','\n\terror: ',errors))
         except Exception, e:
-            self.rooturl[self.url].log(self.OPTIONS.veryverbose,-1,'Error: Fatal error in decodeJS: %s' % e)
+            self.rooturl[self.url].log(self.OPTIONS.veryverbose,-1,'Error: Fatal error in decodeJS: %s (probably you are missing "js" in your path)' % e)
             return '',(time.time()-begin)
 
         return decoded,(time.time()-begin)
@@ -966,7 +966,7 @@ class jsunpack:
             
 
         pdfjs,pdfjs_header = '',''
-        if data.startswith('%PDF-') or data.startswith('%%PDF-'):
+        if 0 <= data[0:1024].find('%PDF-') <= 1024:
             isPDF = True
             self.rooturl[self.url].filetype = 'PDF'
             mypdf = pdf.pdf(data,'PDF-'+self.url)

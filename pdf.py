@@ -510,7 +510,7 @@ class pdf:
 
 
     def is_valid(self):
-        if 0 <= self.indata.find('%PDF-') <= 1024:
+        if 0 <= self.indata[0:1024].find('%PDF-') <= 1024:
             return True
         return False
         
