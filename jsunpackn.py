@@ -483,7 +483,7 @@ class jsunpack:
                 self.rooturl[self.url].setChild(i,type)
         if data.find(' archive=') > -1:
             #Ex. <applet mayscript='true' code='bpac.a.class' archive='bnktjvdpxuko4.jar
-            jars = re.findall('<(applet|object)([^>]*)?[ ]+archive=\\\\?[\\\'"]?(.*?)\\\\?[\\\'"> ]', data, re.IGNORECASE)
+            jars = re.findall('<(applet|object)([^>]*)[ ]+archive=\\\\?[\\\'"]?(.*?)\\\\?[\\\'"> ]', data, re.IGNORECASE)
             for type, other_text, i in jars:
                 i = self.build_url_from_path(i)
                 self.rooturl[self.url].setChild(i,type)
