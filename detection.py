@@ -54,8 +54,13 @@ class rules:
                     msg.append(' ')
                 else:
                     for s in match.strings:
-                        msg.append(match.strings[s])
-                        
+                        if isinstance(match.strings, list):
+                                for x in match.strings:
+                                        msg.append(x[2])
+                        else:
+                            for s in match.strings:
+                                msg.append(match.strings[s])
+
                 #for tag in match.tags:
                 if 'decodedOnly' in match.tags and current_level <= 0:
                     if self.respectLevel:
