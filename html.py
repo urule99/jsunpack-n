@@ -8,7 +8,15 @@ wish to get the result in python instead of via an output string.
 
 '''
 import re,string,sys
-import BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    # BeautifulSoup 4.x not installed trying BeautifulSoup 3.x 
+    try:
+        from BeautifulSoup import BeautifulSoup
+    except ImportError:
+        print ('BeautifulSoup not installed')
+        exit(-1)
 
 class Parser:
     debug = False
@@ -79,7 +87,7 @@ class Parser:
         data = re.sub('\x00','',data)
 
         try:
-            soup = BeautifulSoup.BeautifulSoup(data)
+            soup = BeautifulSoup(data)
         except:
             return '','' #fatal error htmlparsing
         
