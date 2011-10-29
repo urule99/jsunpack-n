@@ -1,8 +1,11 @@
+#!/usr/bin/python
 '''
-Debug class - This is used by the Jsunpackn project to track performance statistics
+Debug class - This is used by the Jsunpackn project to track performance 
+statistics
 
-Within the application being debugged, you should not modify the members directly. 
-Instead, modify those elements by using the add* functions like addLaunch and addDetect
+Within the application being debugged, you should not modify the members 
+directly. Instead, modify those elements by using the add* functions like 
+addLaunch and addDetect
 '''
 import time
 
@@ -23,16 +26,16 @@ class DebugStats:
 
 
 
-    def addLaunch(self,scriptFilename):
-        self.jsLaunches.append([{'filename':scriptFilename},self.endTimer()])
-        self.totalJsLaunches.append([{'filename':scriptFilename},self.endTimer()])
+    def addLaunch(self, scriptFilename):
+        self.jsLaunches.append([{'filename':scriptFilename}, self.endTimer()])
+        self.totalJsLaunches.append([{'filename':scriptFilename}, self.endTimer()])
         if self.endTimer() > 3:
-            print 'addLaunch %s/%s took %.02f '% (self.name, scriptFilename, self.endTimer())
+            print 'addLaunch %s/%s took %.02f ' % (self.name, scriptFilename, self.endTimer())
 
     def addDetect(self, contents):
         self.ruleDetects.append([{'len':len(contents)}, self.endTimer()])
         self.totalRuleDetects.append([{'len':len(contents)}, self.endTimer()])        
-        fout = open('%s/signature_%03d' % (self.tmpdir,self.endTimer()),'wb')
+        fout = open('%s/signature_%03d' % (self.tmpdir, self.endTimer()), 'wb')
         fout.write(contents)
         fout.close()
 
@@ -40,16 +43,16 @@ class DebugStats:
         self.before_decode = self.during_decode = time.time()
         self.responsibility = { 'init': 0, 'decoding':0, 'shellcode':0 }
 
-    def record_main(self,type):
+    def record_main(self, type):
         right_now = time.time()
         self.responsibility[type] = right_now - self.during_decode
         self.during_decode = right_now
 
     def finalize_main(self):
         if time.time() - self.before_decode > 3:
-            print 'main_decoder %s took %.02f seconds (ignored %d urls since last print)' % (self.name[0:20],time.time() - self.before_decode, DebugStats.ignored_main)
+            print 'main_decoder %s took %.02f seconds (ignored %d urls since last print)' % (self.name[0:20], time.time() - self.before_decode, DebugStats.ignored_main)
             if self.responsibility['init'] > 0.5 or self.responsibility['shellcode'] > 1:
-                 print '\t(%.02f init, %.02f decoding, %.02f sc)' % (self.responsibility['init'], self.responsibility['decoding'], self.responsibility['shellcode'])
+                print '\t(%.02f init, %.02f decoding, %.02f sc)' % (self.responsibility['init'], self.responsibility['decoding'], self.responsibility['shellcode'])
             DebugStats.ignored_main = 0
         elif DebugStats.ignored_main >= 10:
             print 'main_decoder ignored %d urls since they are below threshold' % (DebugStats.ignored_main)
@@ -74,7 +77,7 @@ class DebugStats:
 
     def detectTime(self):
         secs = 0
-        for datalen,elapsed in self.ruleDetects:
+        for datalen, elapsed in self.ruleDetects:
             secs += elapsed
         return secs
 

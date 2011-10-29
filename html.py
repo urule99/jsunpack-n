@@ -7,7 +7,9 @@ Please read that file for more information on the syntax
 wish to get the result in python instead of via an output string.
 
 '''
-import re,string,sys
+import re
+import string
+import sys
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -20,7 +22,7 @@ except ImportError:
 
 class Parser:
     debug = False
-    def __init__(self,htmlparseconfig):
+    def __init__(self, htmlparseconfig):
         self.storage = []
 
         self.html_definitions = {}
@@ -37,14 +39,14 @@ class Parser:
         line = 0
         for htmlrule in htmlrules:
             line += 1
-            htmlrule = re.sub('\n','',htmlrule)
-            if not re.match('^\s*$|^#',htmlrule):
-                htmlrule = re.sub('[ \t]+',' ',htmlrule)
+            htmlrule = re.sub('\n', '', htmlrule)
+            if not re.match('^\s*$|^#', htmlrule):
+                htmlrule = re.sub('[ \t]+', ' ', htmlrule)
                 field = htmlrule.split(' ')
 
                 if htmlrule.startswith('!define'):
                     if len(field) > 1:
-                        name,value = field[1],' '.join(field[2:])
+                        name, value = field[1], ' '.join(field[2:])
                         self.html_definitions[name] = value
 
                 elif htmlrule.startswith('!parse'):
@@ -59,40 +61,40 @@ class Parser:
                                 pass
                             else:
                                 attrib[val] = True
-                        format,outvals = field[3].split(':')
+                        format, outvals = field[3].split(':')
                         outvals = outvals.split(',')
-                        self.html_parse_rules.append([tag,attrib,invals,format,outvals])
+                        self.html_parse_rules.append([tag, attrib, invals, format, outvals])
 
                 elif htmlrule.startswith('!filter'):
                     if len(field) > 2:
-                        tag,value = field[1],' '.join(field[2:])
-                        self.html_filters[tag] = re.sub('^\s+|\s+$','',value)
+                        tag, value = field[1], ' '.join(field[2:])
+                        self.html_filters[tag] = re.sub('^\s+|\s+$', '', value)
                 else:
                     print 'fatal: invalid htmlparse.config line: %d' % line
 
         if self.debug:
             print 'done loading htmlparse, (%d parse_rules, %d definitions, %d filters)' % (
-                len(self.html_parse_rules), 
-                len(self.html_definitions), 
+                len(self.html_parse_rules),
+                len(self.html_definitions),
                 len(self.html_filters)
                 )
 
 
-    def htmlparse(self,data):
+    def htmlparse(self, data):
         '''
         Input: can be html code or raw JavaScript code
         Output: an array of [headers, raw JavaScript]
         '''
         outheader, out = '', ''
-        data = re.sub('\x00','',data)
+        data = re.sub('\x00', '', data)
 
         try:
             soup = BeautifulSoup(data)
         except:
-            return '','' #fatal error htmlparsing
+            return '', '' #fatal error htmlparsing
         
-        for tag,attrib,invals,format,outvals in self.html_parse_rules:
-            for htm in soup.findAll(tag,attrib):
+        for tag, attrib, invals, format, outvals in self.html_parse_rules:
+            for htm in soup.findAll(tag, attrib):
                 now = {}
                 raw = {}
                 ignore = False #if a negated match occurs
@@ -111,9 +113,9 @@ class Parser:
                         if val == '*':
                             now['*'] = ''
                         elif val == 'contents':
-                            try: now['contents'] = string.join(map(str,htm.contents))
+                            try: now['contents'] = string.join(map(str, htm.contents))
                             except KeyError, e: now['contents'] = ''
-                            except UnicodeEncodeError, e: now['contents'] = string.join(map(str,str(htm.contents)))
+                            except UnicodeEncodeError, e: now['contents'] = string.join(map(str, str(htm.contents)))
                         elif val == 'name':
                             try: now['name'] = htm.name
                             except KeyError, e: now['name'] = ''
@@ -124,22 +126,22 @@ class Parser:
                     for k in now: #normalize when assigning to variables
                         if format in self.html_definitions: #if this fails, it means that we are trying to get the result in python
                             if not format.startswith('raw'):
-                                now[k] = re.sub('([^a-zA-Z0-9])', lambda m: '\\x%02x' % ord(m.group(1)),now[k])
+                                now[k] = re.sub('([^a-zA-Z0-9])', lambda m: '\\x%02x' % ord(m.group(1)), now[k])
                                 now[k] = "'%s'" % now[k]
 
                     if format in self.html_definitions: #if this fails, it means that we are trying to get the result in python
-                        myfmt = re.sub('^\s+','',self.html_definitions[format]).split('%s')
-                        if len(myfmt)-1 == len(outvals):
+                        myfmt = re.sub('^\s+', '', self.html_definitions[format]).split('%s')
+                        if len(myfmt) - 1 == len(outvals):
                             lineout = ''
-                            for i in range(0,len(outvals)):
+                            for i in range(0, len(outvals)):
                                 lineout += myfmt[i]
                                 lineout += now[outvals[i]]
                             lineout += myfmt[-1] + '\n'
 
                             if htm.name in self.html_filters:
-                                lineout = re.sub(self.html_filters[htm.name],'',lineout)
+                                lineout = re.sub(self.html_filters[htm.name], '', lineout)
                             if '*' in self.html_filters:
-                                lineout = re.sub(self.html_filters['*'],'',lineout,re.I)
+                                lineout = re.sub(self.html_filters['*'], '', lineout, re.I)
                             if format.startswith('header'):
                                 outheader += lineout
                             else:
@@ -147,9 +149,9 @@ class Parser:
                         else:
                             print 'fatal: invalid htmlparse.config format, parameter count or definition problem'
                     else:
-                        for i in range(0,len(outvals)):
-                            self.storage.append([format,now[outvals[i]]])
-        return str(outheader),str(out)
+                        for i in range(0, len(outvals)):
+                            self.storage.append([format, now[outvals[i]]])
+        return str(outheader), str(out)
 
 
 if __name__ == '__main__':
@@ -171,7 +173,7 @@ if __name__ == '__main__':
     #hparser = Parser(htmlparseconfig)
 
     for file in sys.argv[1:]:
-        fin = open(file,'rb')
+        fin = open(file, 'rb')
         data = fin.read()
         fin.close()
 
@@ -182,6 +184,6 @@ if __name__ == '__main__':
             fout = open('%s.out' % file, 'wb')
             fout.write(parsed)
             fout.close()
-            print 'Wrote %s.out (%d bytes)' % (file,len(parsed))
+            print 'Wrote %s.out (%d bytes)' % (file, len(parsed))
         else:
             print 'Nothing parsed for %s' % file

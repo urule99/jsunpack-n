@@ -185,7 +185,7 @@ datatype = {
 	}
 
 
-def reverseInt(input,debug = False):
+def reverseInt(input, debug=False):
 	#input is a string!
 	if len(input) == 1:
 		return ord(input)
@@ -194,26 +194,26 @@ def reverseInt(input,debug = False):
 
 	output = 0
 	shift = 0
-	for arr in range(0,len(input)):
+	for arr in range(0, len(input)):
 		i = input[arr]
 		output += (ord(i) << shift)
 		
 		if debug:
-			print '\tat index arr=%d, shift by %d for ord(i)=%d [%d]' % (arr, shift, ord(i),(ord(i) << shift))
+			print '\tat index arr=%d, shift by %d for ord(i)=%d [%d]' % (arr, shift, ord(i), (ord(i) << shift))
 		shift += 8
 	if debug:
 		print '\t\treturned %d' % (output)
 	return output
 def get_string(data):
 	#return string at the current position
-	for i in range(0,len(data)):
+	for i in range(0, len(data)):
 		if ord(data[i]) == 0:
 			return data[0:i]
 	return ''
 	
 
 def process_action(name, data):
-	txt,url = '', ''
+	txt, url = '', ''
 	if name == 'ActionPush':
 		type = ord(data[0])
 		txt += '\tdatatype[%d]=' % (type)
@@ -228,10 +228,10 @@ def process_action(name, data):
 				
 	elif name == 'ActionGetURL':
 		url = get_string(data)
-		target = get_string(data[len(url)+1:])	
+		target = get_string(data[len(url) + 1:])	
 
-		url = re.sub('[^\x20-\x7e]','',url)
-		target = re.sub('[^\x20-\x7e]','',target)
+		url = re.sub('[^\x20-\x7e]', '', url)
+		target = re.sub('[^\x20-\x7e]', '', target)
 
 		txt += ' %s' % (url)
 		if target:
@@ -240,8 +240,8 @@ def process_action(name, data):
 		pass #built-in vars
 						
 	else:
-		return txt,url
-	return txt,url
+		return txt, url
+	return txt, url
 
 def process_tag(name, data):
 	txt = ''
@@ -260,14 +260,14 @@ def process_tag(name, data):
 			else:
 				#1 bytes
 				if len(data) >= 2:
-					actionlen = reverseInt(data[1],True)
+					actionlen = reverseInt(data[1], True)
 				offset = 2
 			txt += 'len(%d) ' % (actionlen)
 
 			if actionCode in actions:
 				txt += '\t%s' % (actions[actionCode])
-				if (offset+actionlen) <= len(data):
-					t,u = process_action(actions[actionCode],data[offset:offset+actionlen])
+				if (offset + actionlen) <= len(data):
+					t, u = process_action(actions[actionCode], data[offset:offset + actionlen])
 					txt += t
 					urls.append(u)
 				#else:
@@ -276,14 +276,14 @@ def process_tag(name, data):
 				txt += '\tunknownAction'
 
 			txt += '\n'
-			if (offset+actionlen) < len(data):
-				data = data[offset+actionlen:]
+			if (offset + actionlen) < len(data):
+				data = data[offset + actionlen:]
 			else:
 				data = ''
 	else:
-		return '',urls
+		return '', urls
 
-	return txt,urls
+	return txt, urls
 
 
 def swfstream(data):
@@ -300,7 +300,7 @@ def swfstream(data):
 				#print 'decompressed %d bytes' % len(data)
 				data = 'FWS' + header + data
 			except zlib.error, msg:
-				return 'failed to decompress',urls
+				return 'failed to decompress', urls
 
 		if data.startswith('FWS'):
 			#flash file
@@ -313,38 +313,38 @@ def swfstream(data):
 			#process rect structure
 			rectbits = (ord(data[offset]) >> 3)
 
-			if ((rectbits*4) % 8) == 0:
-				more = rectbits*4/8
+			if ((rectbits * 4) % 8) == 0:
+				more = rectbits * 4 / 8
 			else:
-				more = rectbits*4/8 + 1
+				more = rectbits * 4 / 8 + 1
 
 			#print 'since x4 = %d, we need %d more bytes' % (rectbits*4,more)
 			
 			offset += more + 1 #one more for the rectbits [size]
 
 			offset += 4 #Framerate, Framecount
-			out += 'processing flash file [version %d] (length %d, actual length %d)' % (version,entirelen,len(data))
+			out += 'processing flash file [version %d] (length %d, actual length %d)' % (version, entirelen, len(data))
 
 			hidden = {}
 			urls = []
-			while offset+1 < len(data):
+			while offset + 1 < len(data):
 				#CWS/j.winxyz.com_win_j_dadongf.swf
-				b,a = data[offset],data[offset+1]
+				b, a = data[offset], data[offset + 1]
 				#print '\tusing ', hex(ord(a)), hex(ord(b))
 				offset += 2
 
-				tagtype = ((ord(a)<<2) + (ord(b)>>6)) & 0x03ff
+				tagtype = ((ord(a) << 2) + (ord(b) >> 6)) & 0x03ff
 				shortlen = (ord(b) & 0x3f)
 
 			
 				if shortlen == 0x3f:
 					#txt += 'long (%d)' % (shortlen)
-					shortlen = reverseInt(data[offset:offset+4]) 
+					shortlen = reverseInt(data[offset:offset + 4]) 
 					offset += 4
 				if tagtype in tags:
 					if shortlen > 0:
-						out += 'type=%s\tlength=%s\tname=%s\n' % (hex(tagtype),shortlen,tags[tagtype])
-						t,us = process_tag(tags[tagtype],data[offset:offset+shortlen])
+						out += 'type=%s\tlength=%s\tname=%s\n' % (hex(tagtype), shortlen, tags[tagtype])
+						t, us = process_tag(tags[tagtype], data[offset:offset + shortlen])
 						out += t
 						for u in us:
 							stopAt = u.find(' ')
@@ -368,7 +368,7 @@ def swfstream(data):
 					#	for i in range(offset,offset+shortlen):
 					#		txt += hex(ord(data[offset]))
 				else:
-					out += 'type=%s (%d)\tlength=%s\tname=%s\n' % (hex(tagtype),tagtype,shortlen,'unknown')
+					out += 'type=%s (%d)\tlength=%s\tname=%s\n' % (hex(tagtype), tagtype, shortlen, 'unknown')
 				offset += shortlen
 			out += '\ntags (with counts) of length=0\n'
 			
@@ -376,24 +376,24 @@ def swfstream(data):
 			for i in hidden:
 				if not firstTime:
 					out += ', '
-				out += '%s:%d' % (i,hidden[i])
+				out += '%s:%d' % (i, hidden[i])
 				firstTime = False
 
-			return out,urls
+			return out, urls
 		else:
-			return 'Invalid SWF file',urls
+			return 'Invalid SWF file', urls
 	except:
-		return 'Invalid SWF format',urls
+		return 'Invalid SWF format', urls
 
 def main(files):
 	for file in files:
 		if os.path.exists(file):
-			fin = open(file,'r')
+			fin = open(file, 'r')
 			data = fin.read()
 			fin.close()
 
 			if data.startswith('CWS') or data.startswith('FWS'):
-				msgs,urls = swfstream(data)
+				msgs, urls = swfstream(data)
 			
 				print msgs
 				if len(urls) > 0:

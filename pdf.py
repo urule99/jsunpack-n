@@ -8,14 +8,24 @@ Jan 19, 2010
 Command line usage:
 $ ./pdf.py [pdf file]
 '''
-import os, re, sys, zlib, glob, base64, binascii
-import cStringIO, Crypto.Cipher.ARC4, struct, string
-import lzw, html
 from hashlib import md5
+import cStringIO
+import Crypto.Cipher.ARC4
+import struct
+import string
+import lzw
+import html
+import os
+import re
+import sys
+import zlib
+import glob
+import base64
+import binascii
 
 class pdfobj:
     #this class parses single "1 0 obj" up till "endobj" elements
-    def __init__(self,keynum,data):
+    def __init__(self, keynum, data):
         self.tags = [] #tuples of [key,value]
         self.keynum = keynum
         self.indata = data
@@ -61,7 +71,7 @@ class pdfobj:
         if self.isDelayJS:
             out += '\tisDelayJS'
         return out
-    def parseTag(self,tag,stream):
+    def parseTag(self, tag, stream):
         '''
             Input:  tag is the contents of /Tag1 value1 /Tag2 value2
                     stream is (optional) contents between stream and endstream
@@ -74,30 +84,30 @@ class pdfobj:
         multiline = 0 # for tracking multiline in TAGVALCLOSED state
         uncleaned_tags = [] #output of statemachine
 
-        for index in range(0,len(tag)):
+        for index in range(0, len(tag)):
             if state == 'INIT':
                 if tag[index] == '/':
                     state = 'TAG'
             elif state == 'TAG':
-                if re.match('[a-zA-Z0-9#]',tag[index]):
+                if re.match('[a-zA-Z0-9#]', tag[index]):
                     curtag += tag[index]
                 elif tag[index] == '/':
                     if curtag:
-                        uncleaned_tags.append([state,curtag,'']) # no tag value
+                        uncleaned_tags.append([state, curtag, '']) # no tag value
                         curtag = ''
                     state = 'TAG' 
                 else:
                     state = 'TAGVAL' 
                     curval = ''
             elif state == 'TAGVAL': 
-                if tag[index] == '/' and (not tag[index-1] == '\\\\'): # its a new tag
+                if tag[index] == '/' and (not tag[index - 1] == '\\\\'): # its a new tag
                     if curtag or curval:
-                        uncleaned_tags.append([state,curtag,curval])
+                        uncleaned_tags.append([state, curtag, curval])
                     state = 'TAG'
                     curtag = curval = ''
                 elif tag[index] == '(':
                     #what do we do with curval? toss it
-                    if re.match('^[\s\[\]\(\)<>]*$',curval): # look for any characters that indicate this isn't a TAGVALCLOSED
+                    if re.match('^[\s\[\]\(\)<>]*$', curval): # look for any characters that indicate this isn't a TAGVALCLOSED
                         state = 'TAGVALCLOSED'
                         multiline = 0
 
@@ -117,7 +127,7 @@ class pdfobj:
                 #the code could also have enclosed ( chars; therefore, this algorithm is greedy
                 grabMore = 0 # if grabMore is set to 1, it means the tag isn't closing yet
                 if tag[index] == ')': #possible closing tag
-                    if tag[index-1] == '\\': #just kidding its not closing 
+                    if tag[index - 1] == '\\': #just kidding its not closing 
                         grabMore = 1
                     elif multiline: #tricky cases
                         #either a newline or "(" character leads us here.
@@ -129,17 +139,17 @@ class pdfobj:
                         #res = re.match('^(.*)\)  $',tag[index:])
 
                         
-                        if index+1 < len(tag):
-                            indexParen = tag[index+1:].find(')')
+                        if index + 1 < len(tag):
+                            indexParen = tag[index + 1:].find(')')
                             #indexNewL = tag[index+1:].find('\n')
                             if indexParen > -1: # and (indexNewL == -1 or indexNewL > indexParen):
-                                if not re.match('^\s*\/[A-Za-z0-9]+\s*\(', tag[index+1:]):
+                                if not re.match('^\s*\/[A-Za-z0-9]+\s*\(', tag[index + 1:]):
                                     grabMore = 1        
 
                     if grabMore:
                         curval += tag[index]
                     else: #ok ok, its simply closing
-                        uncleaned_tags.append([state,curtag,curval])
+                        uncleaned_tags.append([state, curtag, curval])
                         state = 'INIT'
                         #print '%s (TAGVALCLOSED), length=%d bytes with %d/%d completed (around %s)' % (curtag, len(curval),index,len(tag), tag[index-20:index+20])
                         curtag = curval = ''
@@ -151,10 +161,10 @@ class pdfobj:
             else:
                 print 'invalid state in parseTag: %s' % state
         if curtag: #an ending tag with NO final separator
-            uncleaned_tags.append(['ENDTAG',curtag,curval])
+            uncleaned_tags.append(['ENDTAG', curtag, curval])
 
         #clean uncleaned_tags and put in self.tags instead
-        for source,tagtype,tagdata in uncleaned_tags:
+        for source, tagtype, tagdata in uncleaned_tags:
             newtagtype = pdfobj.fixPound(tagtype)
             if newtagtype != tagtype:
                 self.hiddenTags += 1
@@ -163,27 +173,27 @@ class pdfobj:
             #newlines in tagtype? ONLY for state != TAGVALCLOSED
             if source != 'TAGVALCLOSED':
                 #its okay to replace newlines, spaces, tabs here
-                tagdata = re.sub('[\s\r\n]+',' ',tagdata)
+                tagdata = re.sub('[\s\r\n]+', ' ', tagdata)
 
-            if re.match('^(\\\\[0-9]{3}\s*)+$',tagdata): #ie. need to convert \040 == 0x20
-                tagdata = re.sub('\\\\([0-9]{3})', lambda mo: chr(int(mo.group(1),8)), tagdata)
+            if re.match('^(\\\\[0-9]{3}\s*)+$', tagdata): #ie. need to convert \040 == 0x20
+                tagdata = re.sub('\\\\([0-9]{3})', lambda mo: chr(int(mo.group(1), 8)), tagdata)
 
-            tagdata = re.sub('\\\\n','\n', tagdata)
-            tagdata = re.sub('\\\\t','\t', tagdata)
-            tagdata = re.sub('\\\\(.)','\\1', tagdata)
+            tagdata = re.sub('\\\\n', '\n', tagdata)
+            tagdata = re.sub('\\\\t', '\t', tagdata)
+            tagdata = re.sub('\\\\(.)', '\\1', tagdata)
 
             if not stream and source == 'TAGVALCLOSED':
                 stream = tagdata
                 #print 'set stream to %s; %s; %d bytes' % (source, tagtype, len(tagdata))
 
-            self.tags.append([source,tagtype,tagdata])
+            self.tags.append([source, tagtype, tagdata])
         self.tagstream = stream
 
         if pdf.DEBUG:
             print 'obj %s: ' % (self.keynum)
-            for source,tagtype,tagdata in self.tags:
+            for source, tagtype, tagdata in self.tags:
                 
-                tagtxt = '\ttag %s' % re.sub('\n','',tagtype)  
+                tagtxt = '\ttag %s' % re.sub('\n', '', tagtype)  
                 if len(tagdata) > 30: 
                     tagtxt += ' = [data %d bytes]' % len(tagdata) 
                 elif tagdata:
@@ -193,7 +203,7 @@ class pdfobj:
                             tagtxt += c
                         else:
                             tagtxt += '\\x%02x' % (ord(c))
-                print '%-50s (%s)' % (tagtxt,source) 
+                print '%-50s (%s)' % (tagtxt, source) 
                 #end 
 
     def parseChildren(self):
@@ -201,11 +211,11 @@ class pdfobj:
             Input: self.tags (must be populated)
             Output: self.children
         '''
-        for state,k,kval in self.tags:
-            hasRef = re.search('^(\d+)\s+(\d+)\s+R',kval)
+        for state, k, kval in self.tags:
+            hasRef = re.search('^(\d+)\s+(\d+)\s+R', kval)
             if hasRef:
-                objkey = hasRef.group(1)+' '+ hasRef.group(2)
-                self.children.append([k,objkey])
+                objkey = hasRef.group(1) + ' ' + hasRef.group(2)
+                self.children.append([k, objkey])
 
     def parseObject(self):
         #previously this was non-greedy, but js with '>>' does mess things up in that case
@@ -213,21 +223,21 @@ class pdfobj:
         
         #if pdf.DEBUG:
         #    print '\tstarting object len %d' % len(self.indata)
-        tags = re.findall('<<(.*)>>[\s\r\n%]*(?:stream[\s\r\n]*(.*?)\n?endstream)?',self.indata,re.MULTILINE|re.DOTALL|re.IGNORECASE)
+        tags = re.findall('<<(.*)>>[\s\r\n%]*(?:stream[\s\r\n]*(.*?)\n?endstream)?', self.indata, re.MULTILINE | re.DOTALL | re.IGNORECASE)
         if tags:
-            for tag,stream in tags:
+            for tag, stream in tags:
                 gttag = tag.find('>>')
                 streamtag = tag.find('stream')
 
                 if 0 < gttag < tag.find('stream'):
                     #this means that there was an improper parsing because the tag shouldn't contain a stream object
-                    tags = re.findall('<<(.*?)>>[\s\r\n%]*(?:stream[\s\r\n]*(.*?)\n?endstream)?',self.indata,re.MULTILINE|re.DOTALL|re.IGNORECASE)
+                    tags = re.findall('<<(.*?)>>[\s\r\n%]*(?:stream[\s\r\n]*(.*?)\n?endstream)?', self.indata, re.MULTILINE | re.DOTALL | re.IGNORECASE)
                     
         if not tags: #Error parsing object!
             return
 
-        for tag,stream in tags:
-            self.parseTag(tag,stream)
+        for tag, stream in tags:
+            self.parseTag(tag, stream)
             self.parseChildren()
 
     @staticmethod
@@ -236,8 +246,8 @@ class pdfobj:
         #strips newlines, '[', and ']' characters
         #this allows indexing in arrays
 
-        i = re.sub('[\[\]\n]','',i)
-        i = re.sub('<<$','',i)
+        i = re.sub('[\[\]\n]', '', i)
+        i = re.sub('<<$', '', i)
         return re.sub('#([a-fA-F0-9]{2})', lambda mo: chr(int('0x' + mo.group(1), 0)), i)
         
     @staticmethod
@@ -260,7 +270,7 @@ class pdfobj:
                     output += input[index] * (256 - key_len + 1)
                     index += 1
                 else:
-                    output += input[index:index+key_len + 1]
+                    output += input[index:index + key_len + 1]
                     index += key_len + 1
                 key_len = ord(input[index])
         except: 
@@ -270,43 +280,43 @@ class pdfobj:
     @staticmethod
     def ascii85(input):
         outdata = ''
-        input = re.sub('\s','',input)
-        input = re.sub('^<~','',input)
-        input = re.sub('~>$','',input)
+        input = re.sub('\s', '', input)
+        input = re.sub('^<~', '', input)
+        input = re.sub('~>$', '', input)
 
-        for i in range(0,len(input),5):
-            bytes = input[i:i+5]
+        for i in range(0, len(input), 5):
+            bytes = input[i:i + 5]
             fraglen = len(bytes)
             if bytes[0] == 'z':
                 pass #ignore
             if bytes[0] == 'y':
                 pass #ignore
-            if i+5 >= len(input):
+            if i + 5 >= len(input):
                 #data not divisible by 5
                 bytes = input[i:]
                 fraglen = len(bytes)
-                if fraglen>1:
+                if fraglen > 1:
                     bytes += 'vvv'
 
             total = 0
-            shift = 85*85*85*85
+            shift = 85 * 85 * 85 * 85
             for c in bytes:
-                total += shift*(ord(c)-33)
+                total += shift * (ord(c) - 33)
                 shift /= 85
 
             if fraglen > 1:
-                outdata += chr((total>>24) % 256)
+                outdata += chr((total >> 24) % 256)
                 if fraglen > 2:
-                    outdata += chr((total>>16) % 256)
+                    outdata += chr((total >> 16) % 256)
                     if fraglen > 3:
-                        outdata += chr((total>>8) % 256)
+                        outdata += chr((total >> 8) % 256)
                         if fraglen > 4:
                             outdata += chr((total) % 256)
         return outdata
 
 class pdf:
     DEBUG = 0
-    def __init__(self,indata,infile):
+    def __init__(self, indata, infile):
         self.indata = indata
         self.infile = infile
         self.objects = {} 
@@ -332,20 +342,20 @@ class pdf:
             #print 'found %s with offset %d' % (xref,offset)
         '''
 
-        objs = re.findall('\n?(\d+)\s+(\d+)\s+obj[\s]*(.*?)\s*\n?(endobj|objend)',self.indata,re.MULTILINE|re.DOTALL)
+        objs = re.findall('\n?(\d+)\s+(\d+)\s+obj[\s]*(.*?)\s*\n?(endobj|objend)', self.indata, re.MULTILINE | re.DOTALL)
         if objs:
             for obj in objs:
                 #fill all objects
                 key = obj[0] + ' ' + obj[1]
                 if not key in self.list_obj:
                     self.list_obj.append(key)
-                self.objects[key] = pdfobj(key,obj[2])
+                self.objects[key] = pdfobj(key, obj[2])
 
-            trailers = re.findall('trailer[\s\n]*<<(.*?)>>',self.indata,re.MULTILINE|re.DOTALL)
+            trailers = re.findall('trailer[\s\n]*<<(.*?)>>', self.indata, re.MULTILINE | re.DOTALL)
             for trailertags in trailers:
                 trailerstream = '' #no stream in trailer
-                trailerobj = pdfobj('trailer','') #empty second parameter indicates not to do an object parse
-                trailerobj.parseTag(trailertags,trailerstream)
+                trailerobj = pdfobj('trailer', '') #empty second parameter indicates not to do an object parse
+                trailerobj.parseTag(trailertags, trailerstream)
                 trailerobj.parseChildren()
 
                 for tag, value in trailerobj.children:
@@ -358,9 +368,9 @@ class pdf:
                         ###try: except: for this entire section
                         padding = binascii.unhexlify('28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A') 
                         id = ''
-                        for iState,isID,idVal in trailerobj.tags:
+                        for iState, isID, idVal in trailerobj.tags:
                             if isID == 'ID':
-                                id = re.sub('[^0-9a-fA-F]','',idVal)
+                                id = re.sub('[^0-9a-fA-F]', '', idVal)
                                 if id:
                                     try:
                                         id = binascii.unhexlify(id)
@@ -386,7 +396,7 @@ class pdf:
                 #set object options
                 if self.encr_key:
                     if self.objects[key].tagstream:
-                        self.objects[key].tagstream = self.decryptRC4(self.objects[key].tagstream,key)
+                        self.objects[key].tagstream = self.decryptRC4(self.objects[key].tagstream, key)
                         #print 'trying to decrypt tagstream(%d) on %s' % (len(self.objects[key].tagstream),key)
                         #print 'the input is: ', self.objects[key].tagstream
                         #print 'the output is:', self.decryptRC4(self.objects[key].tagstream,key)
@@ -394,7 +404,7 @@ class pdf:
                 for kstate, k, kval in self.objects[key].tags:
                     if k == 'OpenAction':
                         self.objects[key].isDelayJS = True
-                        for type,childkey in self.objects[key].children:
+                        for type, childkey in self.objects[key].children:
                             if type == 'OpenAction':
                                 if childkey in self.objects:
                                     self.objects[childkey].isDelayJS = True
@@ -403,7 +413,7 @@ class pdf:
 
                     if k == 'JS' or k == 'JavaScript':
                         self.objects[key].isJS = True
-                        for type,childkey in self.objects[key].children:
+                        for type, childkey in self.objects[key].children:
                             if childkey in self.objects and (type == 'JS'):
                                 self.objects[childkey].isJS = True
                                 self.objects[key].isJS = False
@@ -437,12 +447,12 @@ class pdf:
                             self.pages.append(key)
 
                     #populate pdfobj's doc_properties with those that exist
-                    enum_properties = ['Title','Author','Subject','Keywords','Creator','Producer','CreationDate','ModDate','plot']
+                    enum_properties = ['Title', 'Author', 'Subject', 'Keywords', 'Creator', 'Producer', 'CreationDate', 'ModDate', 'plot']
 
                     if k in enum_properties:
                             value = kval
-                            value = re.sub('[\xff\xfe\x00]','',value)
-                            isReference = re.match('^\s*\d+\s+\d+\s+R\s*$',value)
+                            value = re.sub('[\xff\xfe\x00]', '', value)
+                            isReference = re.match('^\s*\d+\s+\d+\s+R\s*$', value)
                             if isReference:
                                 validReference = False
                                 for type, childkey in self.objects[key].children:
@@ -455,9 +465,9 @@ class pdf:
                                     self.objects[key].doc_properties.append(k.lower())
                             else:
                                 #not a reference, use the direct value
-                                value = re.sub('\'','\\x27',value)
-                                self.objects[key].staticScript += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (k.lower(),pdf.do_hexAscii(value),k.lower(),k.lower())
-                                self.objects[key].staticScript += 'app.doc.%s = String(\'%s\');\n' % (k.lower(),pdf.do_hexAscii(value))
+                                value = re.sub('\'', '\\x27', value)
+                                self.objects[key].staticScript += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (k.lower(), pdf.do_hexAscii(value), k.lower(), k.lower())
+                                self.objects[key].staticScript += 'app.doc.%s = String(\'%s\');\n' % (k.lower(), pdf.do_hexAscii(value))
                     
                 for kstate, k, kval in self.objects[key].tags:
                     if k == 'FlateDecode' or k == 'Fl': 
@@ -472,9 +482,9 @@ class pdf:
                     if k == 'ASCIIHexDecode' or k == 'AHx':
                         result = ''
                         counter = 0
-                        self.objects[key].tagstream = re.sub('[^a-fA-F0-9]+','',self.objects[key].tagstream)
-                        for i in range(0,len(self.objects[key].tagstream),2):
-                            result += chr(int('0x'+self.objects[key].tagstream[i:i+2],0))
+                        self.objects[key].tagstream = re.sub('[^a-fA-F0-9]+', '', self.objects[key].tagstream)
+                        for i in range(0, len(self.objects[key].tagstream), 2):
+                            result += chr(int('0x' + self.objects[key].tagstream[i:i + 2], 0))
                         self.objects[key].tagstream = result
                     if k == 'ASCII85Decode' or k == 'A85':
                         self.objects[key].tagstream = pdfobj.ascii85(self.objects[key].tagstream)
@@ -494,7 +504,7 @@ class pdf:
         else:
             print 'Fatal error: pdf has no objects in ' + self.infile
 
-    def decryptRC4(self,data,key):
+    def decryptRC4(self, data, key):
         '''
             Input: data is the data to decrypt, key is the obj information of the form '5 0'
             Assumptions: self.encr_key is set
@@ -502,7 +512,7 @@ class pdf:
         '''
         try:
             obj, rev = key.split(' ')
-            decrypt_key = md5(self.encr_key+struct.pack('L',int(obj))[0:3]+struct.pack('L',int(rev))[0:2]).digest()[0:10]
+            decrypt_key = md5(self.encr_key + struct.pack('L', int(obj))[0:3] + struct.pack('L', int(rev))[0:2]).digest()[0:10]
             cipher = Crypto.Cipher.ARC4.new(decrypt_key)
             return cipher.decrypt(data)
         except:
@@ -517,7 +527,7 @@ class pdf:
     def __repr__(self):
         if not self.is_valid():
             return 'Invalid PDF file "%s"' % (self.infile)
-        out = 'PDF file %s has %d obj items\n' % (self.infile,len(self.objects))
+        out = 'PDF file %s has %d obj items\n' % (self.infile, len(self.objects))
         for obj in sorted(self.objects.keys()):
             out += str(self.objects[obj]) + '\n'
 
@@ -531,7 +541,7 @@ class pdf:
 
             if self.objects[jskey].tagstream:
                 value = self.objects[jskey].tagstream
-                value = re.sub('\'','\\x27',value)
+                value = re.sub('\'', '\\x27', value)
                 if self.objects[jskey].isAnnot:
                     out += 'var zzza = []; if(zzzannot.length > 0){ zzza=zzzannot.pop(); } zzza.push({subject:\'%s\'}); zzzannot.push(zzza);\n' % (value) #getAnnots
                     if self.objects[jskey].knownName:
@@ -539,16 +549,16 @@ class pdf:
                             subj = self.objects[jskey].subj
                         else:
                             subj = value
-                        subj = re.sub('[\x00-\x1f\x7f-\xff]','',subj)
-                        out += 'zzzannot2["%s"] = {subject:\'%s\'};\n' % (self.objects[jskey].knownName,subj) #getAnnot
+                        subj = re.sub('[\x00-\x1f\x7f-\xff]', '', subj)
+                        out += 'zzzannot2["%s"] = {subject:\'%s\'};\n' % (self.objects[jskey].knownName, subj) #getAnnot
                 for property in self.objects[jskey].doc_properties:
-                    out += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (property,pdf.do_hexAscii(value),property,property)
+                    out += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (property, pdf.do_hexAscii(value), property, property)
         for page in self.pages:
             if page in self.objects:
                 lines = self.objects[page].tagstream.split('\n')
                 out += 'c = []; '
                 for line in lines:
-                    textBE = re.findall('BT[^(]*\(([^)]+)\)[^)]*?ET',line)
+                    textBE = re.findall('BT[^(]*\(([^)]+)\)[^)]*?ET', line)
                     for hexdata in textBE:
                         words = hexdata.split(' ')
                         for word in words:
@@ -567,7 +577,7 @@ class pdf:
                 #found embedded file
                 #run htmlparsing
                 parsed_header, parsed_data = self.objects[jskey].hparser.htmlparse(self.objects[jskey].tagstream)
-                parsed_data = re.sub('&lt;','<',parsed_data)
+                parsed_data = re.sub('&lt;', '<', parsed_data)
                 parsed_data = parsed_header + parsed_data
                 self.objects[jskey].tagstream = parsed_data
 
@@ -576,15 +586,15 @@ class pdf:
                         print 'parsed JavaScript (xml, in pdf) %d bytes' % (len(parsed_data))
                     else:
                         num_stored = 0
-                        for format,store_data in self.objects[jskey].hparser.storage:
-                            fout = open('%s.stored_item_%02d' % (self.infile,num_stored), 'wb')
+                        for format, store_data in self.objects[jskey].hparser.storage:
+                            fout = open('%s.stored_item_%02d' % (self.infile, num_stored), 'wb')
                             try: 
                                 decoded_store_data = base64.b64decode(store_data)
                                 fout.write(decoded_store_data)
-                                print 'Wrote %d bytes in EmbeddedFile to %s.stored_item_%02d' % (len(decoded_store_data), self.infile,num_stored)
+                                print 'Wrote %d bytes in EmbeddedFile to %s.stored_item_%02d' % (len(decoded_store_data), self.infile, num_stored)
                             except:
                                 fout.write(store_data)
-                                print 'Wrote %d bytes in EmbeddedFile to %s.stored_item_%02d' % (len(store_data), self.infile,num_stored)
+                                print 'Wrote %d bytes in EmbeddedFile to %s.stored_item_%02d' % (len(store_data), self.infile, num_stored)
 
                             fout.close()
                             num_stored += 1
@@ -617,9 +627,9 @@ class pdf:
                 if self.objects[jskey].isJS or self.objects[jskey].isDelayJS:
                     print '\tchildren ' + str(self.objects[jskey].children) 
                     print '\ttags ' + str(self.objects[jskey].tags)
-                    print '\tindata = ' + re.sub('[\n\x00-\x19\x7f-\xff]','',self.objects[jskey].indata)[:100]
+                    print '\tindata = ' + re.sub('[\n\x00-\x19\x7f-\xff]', '', self.objects[jskey].indata)[:100]
 
-        if len(out+delayout) <= 0:
+        if len(out + delayout) <= 0:
             #Basically if we don't find ANY JavaScript, then we can parse the other elements
             for jskey in self.objects.keys():
                 sloppy = re.search('function |var ', self.objects[jskey].tagstream)
@@ -628,18 +638,18 @@ class pdf:
                     if pdf.DEBUG:
                         print 'Sloppy PDF parsing found %d bytes of JavaScript' % (len(out))
 
-        return re.sub('\\x00','',out+delayout), headersjs
+        return re.sub('\\x00', '', out + delayout), headersjs
 
     @staticmethod
     def do_hexAscii(input):
-        return re.sub('([^a-zA-Z0-9])', lambda m: '\\x%02x' % ord(m.group(1)),input)
+        return re.sub('([^a-zA-Z0-9])', lambda m: '\\x%02x' % ord(m.group(1)), input)
 
     @staticmethod
     def applyFilter(input):
         if len(input) > 10000000:
             return input
 
-        for i in range(0,len(input)):
+        for i in range(0, len(input)):
             c = ord(input[i])
             if 0 < c < 0x19 or 0x7f < c < 0xff or input[i] in ' \n\r':
                 pass #cut beginning non-ascii characters
@@ -648,7 +658,7 @@ class pdf:
                 break
 
         input = input[::-1] #reversed
-        for i in range(0,len(input)):
+        for i in range(0, len(input)):
             c = ord(input[i])
 
             if 0 < c < 0x19 or 0x7f < c < 0xff or input[i] in ' \n\r':
@@ -668,21 +678,21 @@ def main(files):
     for file in files:
         data = ''
         if os.path.exists(file):
-            fin = open(file,'r')
+            fin = open(file, 'r')
             data = fin.read()
             fin.close()
 
-        mypdf = pdf(data,file)
+        mypdf = pdf(data, file)
         if mypdf.is_valid():
             print 'parsing %s' % file
             mypdf.parse()
-            decoded,decoded_headers = mypdf.getJavaScript()
+            decoded, decoded_headers = mypdf.getJavaScript()
 
             if len(decoded) > 0:
                 decoded = decoded_headers + decoded
-                fout = open(file+'.out','w')
+                fout = open(file + '.out', 'w')
                 if fout:
-                    print 'Wrote JavaScript (%d bytes -- %d headers / %d code) to file %s' % (len(decoded), len(decoded_headers), len(decoded) - len(decoded_headers), file+'.out') 
+                    print 'Wrote JavaScript (%d bytes -- %d headers / %d code) to file %s' % (len(decoded), len(decoded_headers), len(decoded) - len(decoded_headers), file + '.out') 
                     fout.write(decoded)
                     fout.close()
             else:

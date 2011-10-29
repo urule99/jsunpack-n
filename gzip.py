@@ -5,11 +5,13 @@ but random access is not allowed."""
 
 # based on Andrew Kuchling's minigzip.py distributed with the zlib module
 
-import struct, sys, time
-import zlib
 import __builtin__
+import struct
+import sys
+import time
+import zlib
 
-__all__ = ["GzipFile","open"]
+__all__ = ["GzipFile", "open"]
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
@@ -37,13 +39,13 @@ def write32u(output, value):
     output.write(struct.pack("<L", value))
 
 def read32(input):
-	i = input.read(4)
-	val = 0
-	if len(i) > 0:
-		#print 'cool with len %d' % (len(i))
-	
-		val = struct.unpack("<l", i)[0]
-	return val
+    i = input.read(4)
+    val = 0
+    if len(i) > 0:
+        #print 'cool with len %d' % (len(i))
+    
+        val = struct.unpack("<l", i)[0]
+    return val
 
 def open(filename, mode="rb", compresslevel=9):
     """Shorthand for GzipFile(filename, mode, compresslevel).
@@ -121,7 +123,7 @@ class GzipFile:
             self._init_write(filename)
             self.compress = zlib.compressobj(compresslevel,
                                              zlib.DEFLATED,
-                                             -zlib.MAX_WBITS,
+                                             - zlib.MAX_WBITS,
                                              zlib.DEF_MEM_LEVEL,
                                              0)
         else:
@@ -170,10 +172,10 @@ class GzipFile:
                 raise EOFError, 'end of file'
         if magic != '\037\213':
             raise IOError, 'Not a gzipped file'
-        method = ord( self.fileobj.read(1) )
+        method = ord(self.fileobj.read(1))
         if method != 8:
             raise IOError, 'Unknown compression method'
-        flag = ord( self.fileobj.read(1) )
+        flag = ord(self.fileobj.read(1))
         # modtime = self.fileobj.read(4)
         # extraflag = self.fileobj.read(1)
         # os = self.fileobj.read(1)
@@ -182,25 +184,25 @@ class GzipFile:
         if flag & FEXTRA:
             # Read & discard the extra field, if present
             xlen = ord(self.fileobj.read(1))
-            xlen = xlen + 256*ord(self.fileobj.read(1))
+            xlen = xlen + 256 * ord(self.fileobj.read(1))
             self.fileobj.read(xlen)
         if flag & FNAME:
             # Read and discard a null-terminated string containing the filename
             while True:
                 s = self.fileobj.read(1)
-                if not s or s=='\000':
+                if not s or s == '\000':
                     break
         if flag & FCOMMENT:
             # Read and discard a null-terminated string containing a comment
             while True:
                 s = self.fileobj.read(1)
-                if not s or s=='\000':
+                if not s or s == '\000':
                     break
         if flag & FHCRC:
             self.fileobj.read(2)     # Read & discard the 16-bit header CRC
 
 
-    def write(self,data):
+    def write(self, data):
         if self.mode != WRITE:
             import errno
             raise IOError(errno.EBADF, "write() on read-only GzipFile object")
@@ -210,10 +212,10 @@ class GzipFile:
         if len(data) > 0:
             self.size = self.size + len(data)
             self.crc = zlib.crc32(data, self.crc)
-            self.fileobj.write( self.compress.compress(data) )
+            self.fileobj.write(self.compress.compress(data))
             self.offset += len(data)
 
-    def read(self, size=-1):
+    def read(self, size= -1):
         if self.mode != READ:
             import errno
             raise IOError(errno.EBADF, "read() on write-only GzipFile object")
@@ -265,7 +267,7 @@ class GzipFile:
             if pos == self.fileobj.tell():
                 raise EOFError, "Reached EOF"
             else:
-                self.fileobj.seek( pos ) # Return to original position
+                self.fileobj.seek(pos) # Return to original position
 
             self._init_read()
             self._read_gzip_header()
@@ -281,11 +283,11 @@ class GzipFile:
         if buf == "":
             uncompress = self.decompress.flush()
             self._read_eof()
-            self._add_read_data( uncompress )
+            self._add_read_data(uncompress)
             raise EOFError, 'Reached EOF'
 
         uncompress = self.decompress.decompress(buf)
-        self._add_read_data( uncompress )
+        self._add_read_data(uncompress)
 
         if self.decompress.unused_data != "":
             # Ending case: we've come to the end of a member in the file,
@@ -293,7 +295,7 @@ class GzipFile:
             # this member, and read a new gzip header.
             # (The number of bytes to seek back is the length of the unused
             # data, minus 8 because _read_eof() will rewind a further 8 bytes)
-            self.fileobj.seek( -len(self.decompress.unused_data)+8, 1)
+            self.fileobj.seek(-len(self.decompress.unused_data) + 8, 1)
 
             # Check the CRC and file size, and set the flag so we read
             # a new member on the next call
@@ -349,7 +351,7 @@ class GzipFile:
             return
         self.close()
 
-    def flush(self,zlib_mode=zlib.Z_SYNC_FLUSH):
+    def flush(self, zlib_mode=zlib.Z_SYNC_FLUSH):
         if self.mode == WRITE:
             # Ensure the compressor's buffer is flushed
             self.fileobj.write(self.compress.flush(zlib_mode))
@@ -397,7 +399,7 @@ class GzipFile:
                 self.read(1024)
             self.read(count % 1024)
 
-    def readline(self, size=-1):
+    def readline(self, size= -1):
         if size < 0:
             size = sys.maxint
             readsize = self.min_readsize

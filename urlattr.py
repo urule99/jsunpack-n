@@ -4,19 +4,20 @@ This is a helper class within jsunpack-n
 There is no command line usage for this class
 '''
 
-import re,os
 from hashlib import sha1
+import re
+import os
 
 def convert(hex):
-    return chr(int('0x' + hex,0))
+    return chr(int('0x' + hex, 0))
 
-def cleanChars(str,replaceWith = ''):
+def cleanChars(str, replaceWith=''):
     '''
     Input string is stripped of binary characters
         \\x0a is preserved as newline
         \\x20 space and ascii chars
     '''
-    return re.sub('[\x00-\x09\x0b-\x19\x7f-\xff]',replaceWith,str)
+    return re.sub('[\x00-\x09\x0b-\x19\x7f-\xff]', replaceWith, str)
 
 def canonicalize(input):
     #input is a URL
@@ -24,7 +25,7 @@ def canonicalize(input):
     if os.path.exists(input):
         return input
 
-    output = re.sub('^[https]+:?//','',input)
+    output = re.sub('^[https]+:?//', '', input)
 
     if output.find('/') == -1:
         output += '/'
@@ -38,7 +39,7 @@ class urlattr:
     ANALYZED = 0
     verbose = False
 
-    def __init__(self,inrooturl,url,tcpaddr = [['0.0.0.0',0], ['0.0.0.0',0]]):
+    def __init__(self, inrooturl, url, tcpaddr=[['0.0.0.0', 0], ['0.0.0.0', 0]]):
         if self.verbose and url in inrooturl:
             print 'Warning: resetting urlattr %s without checking it (may cause loss of data)' % (url)
             
@@ -67,19 +68,19 @@ class urlattr:
     def getIP(self):
         '''returns the ip address of the server'''
         try:
-            (srcip,srcport),(dstip,dstport) = self.tcpaddr
+            (srcip, srcport), (dstip, dstport) = self.tcpaddr
             return dstip
         except:
             return '0.0.0.0'
 
-    def setTcpMethod(self,url,tcpaddr,method):
+    def setTcpMethod(self, url, tcpaddr, method):
         url = canonicalize(url)
         if not url in self.rooturl:
-            self.rooturl[url] = urlattr(self.rooturl,url)
+            self.rooturl[url] = urlattr(self.rooturl, url)
 
         self.rooturl[url].method = method
         self.rooturl[url].tcpaddr = tcpaddr
-        self.setChild(url,'default')
+        self.setChild(url, 'default')
         
     def mergeEntries(self): 
         #use self.rooturl data to populate
@@ -106,26 +107,26 @@ class urlattr:
             for m in self.rooturl[self.url].msg:
                 if not m in self.msg:
                     self.msg.append(m)
-    def log(self,printable,severity,msg):
-        if not [printable,severity,msg] in self.msg:
-            self.msg.append([printable,severity,msg])
+    def log(self, printable, severity, msg):
+        if not [printable, severity, msg] in self.msg:
+            self.msg.append([printable, severity, msg])
 
-    def setMalicious(self,new):
-        self.malicious = max(self.malicious,new)
+    def setMalicious(self, new):
+        self.malicious = max(self.malicious, new)
         if self.url in self.rooturl:
-            self.rooturl[self.url].malicious = max(self.rooturl[self.url].malicious,new)
+            self.rooturl[self.url].malicious = max(self.rooturl[self.url].malicious, new)
 
-    def getChildUrls(self,start,returls = []):
+    def getChildUrls(self, start, returls=[]):
         #recursive! append to returls parameter
         returls.append(start)
 
         if start in self.rooturl:
-            for t,u in self.rooturl[start].children:
+            for t, u in self.rooturl[start].children:
                 if not u in returls:
-                    returls = self.getChildUrls(u,returls)
+                    returls = self.getChildUrls(u, returls)
         return returls
 
-    def setChild(self,childurl,type):
+    def setChild(self, childurl, type):
         '''
             add childurl as a child of self.url
             if childurl already has a type (default, shellcode, jsvar, redirect)
@@ -140,7 +141,7 @@ class urlattr:
             return # linking to itself is stupid
 
         if not childurl in self.rooturl:
-            self.rooturl[childurl] = urlattr(self.rooturl,childurl)
+            self.rooturl[childurl] = urlattr(self.rooturl, childurl)
             self.rooturl[childurl].type = type
 
             #preserve method,hasParent,type
@@ -171,24 +172,24 @@ class urlattr:
 
         
         if not self.child_exists(childurl):
-            self.rooturl[self.url].children.append([type,childurl])
+            self.rooturl[self.url].children.append([type, childurl])
 
-    def child_exists(self,lookup):
+    def child_exists(self, lookup):
         '''lookup is a url'''
-        for t,u in self.rooturl[self.url].children:
+        for t, u in self.rooturl[self.url].children:
             if u == lookup:
                 return True
         return False
 
-    def file_exists(self,lookup):
+    def file_exists(self, lookup):
         '''lookup is a sha1hash'''
-        for type,hash,data in self.files:
+        for type, hash, data in self.files:
             if lookup == hash:
                 return True
         return False
         
 
-    def create_sha1file(self, outdir, data, type = 'sha1'):
+    def create_sha1file(self, outdir, data, type='sha1'):
         '''
             outdir is the directory prefix
         '''
@@ -197,24 +198,24 @@ class urlattr:
 
         shash = sha1(data).hexdigest()
         sha1file = 'undefined'
-        sha1file = '%s/%s_%s' % (outdir,type,shash)
+        sha1file = '%s/%s_%s' % (outdir, type, shash)
 
         if outdir: #no output directory means don't output anything
             if not os.path.isdir(outdir):
                 os.mkdir(outdir)
             if os.path.isdir(outdir):
-                ffile = open(sha1file,'wb')
+                ffile = open(sha1file, 'wb')
                 ffile.write(data)
                 ffile.close()
 
         #self.files.append([type,shash,data])
         if not self.file_exists(shash):
-            self.files.append([type,shash,data])
+            self.files.append([type, shash, data])
 
         return sha1file
 
         
-    def tostring(self,prefix = '', recursive = True, parentMalicious = 0, path = []):
+    def tostring(self, prefix='', recursive=True, parentMalicious=0, path=[]):
         cumulative_malicious = self.malicious
 
         #if recursive and self.url in self.seen:
@@ -224,7 +225,7 @@ class urlattr:
         childtxt = ''
         if recursive:
             child_ignored = 0
-            for type,child in self.children:
+            for type, child in self.children:
                 if self.rooturl[child].hasParent and type == 'default':
                     child_ignored += 1
                 elif child in path:
@@ -232,18 +233,18 @@ class urlattr:
                     child_ignored += 1
                 else:
                     path.append(child)
-                    tmptxt, tmpmal = self.rooturl[child].tostring('\t'+prefix,recursive,max(self.malicious,parentMalicious,path))
+                    tmptxt, tmpmal = self.rooturl[child].tostring('\t' + prefix, recursive, max(self.malicious, parentMalicious, path))
                     #childtxt += '\t%s child[%s] using parent[%s]' % (prefix,child.url,self.url)
                     childtxt += tmptxt
-                    cumulative_malicious = max(cumulative_malicious,tmpmal)
+                    cumulative_malicious = max(cumulative_malicious, tmpmal)
         intro = ''
 
-        if max(cumulative_malicious,self.malicious,parentMalicious) <= 0 and urlattr.verbose == False:
-            return '',cumulative_malicious
+        if max(cumulative_malicious, self.malicious, parentMalicious) <= 0 and urlattr.verbose == False:
+            return '', cumulative_malicious
 
         if self.type and (self.type == 'img' or self.type == 'input' or self.type == 'link'):
             #don't expect these to be interesting
-            return '',cumulative_malicious
+            return '', cumulative_malicious
 
         if self.filetype:
             intro += '[' + self.filetype + '] '
@@ -259,9 +260,9 @@ class urlattr:
             ip = '(ipaddr:%s) ' % (ip)
 
         if self.malicious > 5:
-            intro = '[malicious:%d] %s' % (self.malicious,ip) + intro
+            intro = '[malicious:%d] %s' % (self.malicious, ip) + intro
         elif self.malicious > 0:
-            intro = '[suspicious:%d] %s' % (self.malicious,ip) + intro
+            intro = '[suspicious:%d] %s' % (self.malicious, ip) + intro
         else:
         
             extra = ''
@@ -280,13 +281,13 @@ class urlattr:
         intro += self.url
         txt = prefix + '%s\n' % (intro)
 
-        prefix = '\t'+prefix
+        prefix = '\t' + prefix
         #if self.tcpaddr:
         #   txt += prefix + 'requested by %s\n' % (self.tcpaddr[0][0])
         if self.status:
-            txt += prefix + 'status: %s\n' % (re.sub('[\t\n]','',self.status))
-        for printable,impact,msg in self.msg:
-            msg = re.sub('\n','\n'+prefix,msg)
+            txt += prefix + 'status: %s\n' % (re.sub('[\t\n]', '', self.status))
+        for printable, impact, msg in self.msg:
+            msg = re.sub('\n', '\n' + prefix, msg)
             if printable:
                 type = ''
                 if impact > 5:
@@ -298,13 +299,13 @@ class urlattr:
                 elif impact < 0:
                     type = 'error'
 
-                txt += prefix + '%s: %s\n' % (type,msg)
+                txt += prefix + '%s: %s\n' % (type, msg)
         for type, hash, data in self.files:
-            txt += prefix + 'file: %s_%s: %d bytes\n' % (type,hash,len(data))
+            txt += prefix + 'file: %s_%s: %d bytes\n' % (type, hash, len(data))
 
         txt += childtxt
-        self.seen[self.url] = [txt,cumulative_malicious]
-        return txt,cumulative_malicious
+        self.seen[self.url] = [txt, cumulative_malicious]
+        return txt, cumulative_malicious
 
     def graph(self, outfile):
         remaining = 60
@@ -328,17 +329,17 @@ class urlattr:
             else:
                 color = 'white'
         
-            if max(self.rooturl[url].malicious,self.rooturl[url].cumulative_malicious) > 0 or self.graphall:
+            if max(self.rooturl[url].malicious, self.rooturl[url].cumulative_malicious) > 0 or self.graphall:
                 remaining -= 1
                 node = g.add_node(url)
                 node.label = urlstr
                 node.color = color
                 node.shape = yapgvb.shapes.box
 
-                for type,child in self.rooturl[url].children:
+                for type, child in self.rooturl[url].children:
                     if self.rooturl[child].hasParent and type == 'default':
                         pass 
-                    elif max(self.rooturl[url].malicious,self.rooturl[child].cumulative_malicious,self.rooturl[child].malicious) > 0 or self.graphall:
+                    elif max(self.rooturl[url].malicious, self.rooturl[child].cumulative_malicious, self.rooturl[child].malicious) > 0 or self.graphall:
                         cnode = g.add_node(child)
                         cnode.shape = yapgvb.shapes.box
                         cnode.label = child
@@ -350,4 +351,4 @@ class urlattr:
             g.layout(yapgvb.engines.dot)
             g.render(outfile)
         else:
-            print 'Not graphing "%s" because rooturl used (%d) more nodes than the maximum (60)' % (outfile,-remaining)
+            print 'Not graphing "%s" because rooturl used (%d) more nodes than the maximum (60)' % (outfile, -remaining)

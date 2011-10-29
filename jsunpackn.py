@@ -21,12 +21,24 @@
 #See included INSTALL file for installation instructions
 #See included CHANGELOG file for features
 
-from BeautifulSoup import BeautifulSoup
-import sys, os, re, time, subprocess, struct
-import StringIO, string, gzip, signal, urllib2, socket
-import ConfigParser, random
-from optparse import OptionParser
 from hashlib import sha1
+from optparse import OptionParser
+from urlattr import *
+import ConfigParser
+import random
+import StringIO
+import gzip
+import signal
+import urllib2
+import socket
+import pdf
+import swf
+import detection
+import html
+import sys
+import time
+import subprocess
+import struct
 
 try:
     import magic #optional
@@ -36,8 +48,6 @@ try:
 except:
     ENABLE_MAGIC = False
 
-import pdf,swf,detection,html
-from urlattr import *
 try:
     import nids #optional
     end_states = (nids.NIDS_CLOSE, nids.NIDS_TIMEOUT, nids.NIDS_RESET)
@@ -50,7 +60,7 @@ class jsunpack:
     defaultReferer = 'www.google.com/trends/hottrends' #used by active fetching only
     ips = []
     
-    def __init__( self, _start, todecode, options, prevRooturl={} ) :
+    def __init__(self, _start, todecode, options, prevRooturl={}) :
         '''
         INPUT: These are the main input modes:
             1) options.urlfetch: URL to fetch and decode (if options.active, then follow up)
@@ -72,7 +82,7 @@ class jsunpack:
         self.start = canonicalize(_start) #start is the root node in the tree, do not destroy it
         self.rooturl = prevRooturl #this dict contains all information about decodings, continuity between decodings
 
-        [myurl,mydata,myfile] = todecode
+        [myurl, mydata, myfile] = todecode
         self.url = myurl
 
         self.forceStreams = False #keep data in streams{} in case we don't end in one of the end_states
@@ -95,10 +105,10 @@ class jsunpack:
 
         self.OPTIONS.outdir = self.replaceCurrentDate(self.OPTIONS.outdir)
         self.OPTIONS.tmpdir = self.replaceCurrentDate(self.OPTIONS.tmpdir)
-        if not hasattr(self.OPTIONS,'log_ips'):
+        if not hasattr(self.OPTIONS, 'log_ips'):
             self.OPTIONS.log_ips = ''
         self.OPTIONS.log_ips = self.replaceCurrentDate(self.OPTIONS.log_ips)
-        if not hasattr(self.OPTIONS,'decoded'):
+        if not hasattr(self.OPTIONS, 'decoded'):
             self.OPTIONS.decoded = ''
         self.OPTIONS.decoded = self.replaceCurrentDate(self.OPTIONS.decoded)
 
@@ -115,7 +125,7 @@ class jsunpack:
         elif self.OPTIONS.urlfetch:
             if not self.OPTIONS.quiet:
                 print 'URL fetch %s' % (self.OPTIONS.urlfetch)
-            status,fname = self.fetch(options.urlfetch)
+            status, fname = self.fetch(options.urlfetch)
             if not self.OPTIONS.quiet:
                 print status
             
@@ -124,7 +134,7 @@ class jsunpack:
                 if myfile:
                     self.url = myfile #use filename as the root
             if self.url and (not self.url in self.rooturl):
-                self.rooturl[self.url] = urlattr(self.rooturl,self.start)
+                self.rooturl[self.url] = urlattr(self.rooturl, self.start)
 
             if mydata:
                 self.rooturl[self.url].setMalicious(urlattr.ANALYZED)
@@ -134,7 +144,7 @@ class jsunpack:
                     else:
                         print '[warning] %s not scanned because pynids ("import nids") failed' % (file)
                 else:
-                    self.main_decoder(mydata,myfile)
+                    self.main_decoder(mydata, myfile)
 
         if self.OPTIONS.active:
             todo = []
@@ -146,7 +156,7 @@ class jsunpack:
                     print 'Active Mode, fetching %d new URLs' % (len(todo))
                 while todo:
                     url = todo.pop()
-                    status,fname = self.fetch(url)
+                    status, fname = self.fetch(url)
                     self.rooturl[url].setMalicious(urlattr.ANALYZED)
 
                     if not self.OPTIONS.quiet:
@@ -154,7 +164,7 @@ class jsunpack:
                         if self.rooturl[url].type:
                             type = '(%s) ' % (self.rooturl[url].type)
                         if not self.OPTIONS.quiet:
-                            print '\tfetching URL %s%s' % (type,url) + status
+                            print '\tfetching URL %s%s' % (type, url) + status
                     
                 for url in self.rooturl:
                     if self.rooturl[url].malicious == urlattr.NOT_ANALYZED:
@@ -170,62 +180,62 @@ class jsunpack:
                 before = variable[0:curdate]
             after = variable[curdate + len('$CURDATE'):]
             
-            variable = '%s%04d%02d%02d%s' % (before,yr,mo,day,after)
+            variable = '%s%04d%02d%02d%s' % (before, yr, mo, day, after)
         return variable
         
 
-    def decodeVersions(self,to_write,isPDF):
+    def decodeVersions(self, to_write, isPDF):
         decodings = [] #there may be multiple decodings if we get different results for version strings
         duration = 0 #total elapsed time
         runningTime = 0 #previous evaluation time
 
         if isPDF:
-            pdfversions = ['','9.1']
+            pdfversions = ['', '9.1']
             if not self.OPTIONS.fasteval:
                 pdfversions.append('8.0')
                 pdfversions.append('7.0')
 
             for pdfversion in pdfversions: #if the runningTime is short, try these alternative versions
-                if duration<self.OPTIONS.timeout and runningTime<=self.OPTIONS.redoevaltime:
+                if duration < self.OPTIONS.timeout and runningTime <= self.OPTIONS.redoevaltime:
                     env_vars = 'app.viewerVersion = Number(%s);\n' % (pdfversion)
 
-                    decoded,currentRunningTime = self.decodeJShelper('%s%s' % (env_vars,to_write))
+                    decoded, currentRunningTime = self.decodeJShelper('%s%s' % (env_vars, to_write))
                     runningTime = currentRunningTime
                     duration += currentRunningTime
-                    decodings.append(['app.viewerVersion='+pdfversion,decoded])
+                    decodings.append(['app.viewerVersion=' + pdfversion, decoded])
                 
         else:
-            need_to_write = 'var location = new my_location("%s","%s"); \n%s\n' % (self.url,self.url,to_write)
+            need_to_write = 'var location = new my_location("%s","%s"); \n%s\n' % (self.url, self.url, to_write)
             if not self.OPTIONS.fasteval: #don't evaluate HTML en/zh-cn in favor of performance
-                for lang in ['en','zh-cn']:
-                    if duration<self.OPTIONS.timeout and runningTime<=self.OPTIONS.redoevaltime:
-                        env_vars =  'navigator.systemLanguage=String("%s"); ' % lang
+                for lang in ['en', 'zh-cn']:
+                    if duration < self.OPTIONS.timeout and runningTime <= self.OPTIONS.redoevaltime:
+                        env_vars = 'navigator.systemLanguage=String("%s"); ' % lang
                         env_vars += 'navigator.browserLanguage=String("%s"); ' % lang
-                        env_vars += 'document.lastModified=String("%s");\n' % re.sub('"','',self.lastModified)
-                        decoded,currentRunningTime = self.decodeJShelper('%s%s' % (env_vars,need_to_write))
+                        env_vars += 'document.lastModified=String("%s");\n' % re.sub('"', '', self.lastModified)
+                        decoded, currentRunningTime = self.decodeJShelper('%s%s' % (env_vars, need_to_write))
                         runningTime = currentRunningTime
                         duration += currentRunningTime
-                        decodings.append(['navigator.systemLanguage='+lang,decoded])
+                        decodings.append(['navigator.systemLanguage=' + lang, decoded])
 
-            browsers = [    ['IE7/XP','Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)'] ]
+            browsers = [    ['IE7/XP', 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)'] ]
 
             if not self.OPTIONS.fasteval:
-                browsers.append(['IE8/Vista','Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.648; .NET CLR 3.5.21022; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)'])
-                browsers.append(['Opera','Opera/9.64 (Windows NT 6.1; U; de) Presto/2.1.1'])
-                browsers.append(['Firefox','Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.1.2) Gecko/20090729 Firefox/3.5.2 (.NET CLR 3.5.30729)'])
-            for name,browser in browsers:
-                if duration<self.OPTIONS.timeout and runningTime<=self.OPTIONS.redoevaltime:
+                browsers.append(['IE8/Vista', 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.648; .NET CLR 3.5.21022; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)'])
+                browsers.append(['Opera', 'Opera/9.64 (Windows NT 6.1; U; de) Presto/2.1.1'])
+                browsers.append(['Firefox', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.1.2) Gecko/20090729 Firefox/3.5.2 (.NET CLR 3.5.30729)'])
+            for name, browser in browsers:
+                if duration < self.OPTIONS.timeout and runningTime <= self.OPTIONS.redoevaltime:
                     midpoint = browser.find('/')
                     appCodeName = browser[:midpoint]
-                    appVersion = browser[midpoint+1:]
-                    decoded,currentRunningTime = self.decodeJShelper('navigator.appCodeName = String("%s"); navigator.appVersion = String("%s"); navigator.userAgent = String("%s"); document.lastModified = String("%s");\n%s' % (appCodeName, appVersion, browser, self.lastModified, need_to_write))
+                    appVersion = browser[midpoint + 1:]
+                    decoded, currentRunningTime = self.decodeJShelper('navigator.appCodeName = String("%s"); navigator.appVersion = String("%s"); navigator.userAgent = String("%s"); document.lastModified = String("%s");\n%s' % (appCodeName, appVersion, browser, self.lastModified, need_to_write))
                     runningTime = currentRunningTime
                     duration += currentRunningTime
-                    decodings.append(['browser='+name,decoded])
+                    decodings.append(['browser=' + name, decoded])
 
         return decodings
 
-    def decodeJS(self,content,isPDF):
+    def decodeJS(self, content, isPDF):
         #return values are:
         #(decoded scripts)
         try:
@@ -235,26 +245,26 @@ class jsunpack:
 
         if len(to_write) > 0: #html parse succeeded
             to_write = to_write_headers + to_write
-            decodings = self.decodeVersions(to_write,isPDF)
+            decodings = self.decodeVersions(to_write, isPDF)
 
             #redo decoding if we didn't decode anything
             if not self.OPTIONS.fasteval: #in performance optimized version, we should not evaluate this option 
                 redo = 1
-                for version,decoding in decodings:
+                for version, decoding in decodings:
                     if len(decoding) > 0:
                         redo = 0
                 if redo: 
                     #its possible that HTML parsing failed, then we should process the original content
-                    more_decode = self.decodeVersions(content,isPDF)
+                    more_decode = self.decodeVersions(content, isPDF)
                     for decode in more_decode:
                         decodings.append(decode)
 
         else: #html parse failed (or was empty), treat original 'content' as JavaScript
-            decodings = self.decodeVersions(content,isPDF)
+            decodings = self.decodeVersions(content, isPDF)
         
         winner = ''
         lengths = {}
-        for version,decoding in decodings:
+        for version, decoding in decodings:
             thislen = len(decoding)
             if len(decodings) > 1:
                 key = '%d' % (thislen)
@@ -268,29 +278,29 @@ class jsunpack:
 
         if len(lengths) > 1:
             for a in lengths:
-                self.rooturl[self.url].log(self.OPTIONS.veryverbose,0,'Decoding option %s, \t%s bytes' % (' and '.join(lengths[a]), a))
+                self.rooturl[self.url].log(self.OPTIONS.veryverbose, 0, 'Decoding option %s, \t%s bytes' % (' and '.join(lengths[a]), a))
 
         return winner
             
-    def decodeJShelper(self,to_write,fixErrors=3):
+    def decodeJShelper(self, to_write, fixErrors=3):
         if fixErrors > 1 and self.OPTIONS.fasteval:
             fixErrors = 1
 
         current_filename = '%s/tmpsha1_%s' % (self.OPTIONS.tmpdir, sha1(to_write).hexdigest())
-        fout = open(current_filename+'.js','wb')
+        fout = open(current_filename + '.js', 'wb')
         if fout:
-            to_write = re.sub('\0','',to_write)
+            to_write = re.sub('\0', '', to_write)
             fout.write(to_write)
             fout.close()
         else:
             print 'Error: writing to tmpfile %s' % current_filename
-            return '',0
+            return '', 0
 
         decoded = errors = ''
         begin = time.time()
         try:
-            js_stdout = open(current_filename+'.stdout', 'wb')
-            js_stderr = open(current_filename+'.stderr', 'wb')
+            js_stdout = open(current_filename + '.stdout', 'wb')
+            js_stderr = open(current_filename + '.stderr', 'wb')
 
             if self.OPTIONS.debug:
                 self.rooturl[self.url].dbgobj.addTimer()
@@ -298,7 +308,7 @@ class jsunpack:
             if not (os.path.exists(self.OPTIONS.pre) and os.path.exists(self.OPTIONS.post)):
                 exit("Fatal: Failed to find pre.js and post.js")
 
-            po = subprocess.Popen(['js', '-f', self.OPTIONS.pre, '-f', current_filename+'.js', '-f', self.OPTIONS.post], shell=False, stdout = js_stdout, stderr = js_stderr)
+            po = subprocess.Popen(['js', '-f', self.OPTIONS.pre, '-f', current_filename + '.js', '-f', self.OPTIONS.post], shell=False, stdout=js_stdout, stderr=js_stderr)
 
             timeLimitExceededReason = ''
             while not timeLimitExceededReason and po.poll() == None:
@@ -318,81 +328,81 @@ class jsunpack:
 
             if po.poll() == None:
                 #process didn't finish
-                os.kill(po.pid,signal.SIGKILL)
+                os.kill(po.pid, signal.SIGKILL)
                 if self.OPTIONS.veryverbose:
-                    self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, to_write,'timeout')
+                    self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, to_write, 'timeout')
 
             #process finished/killed now
 
             js_stdout.close()
-            js_stdout = open(current_filename+'.stdout', 'rb')
+            js_stdout = open(current_filename + '.stdout', 'rb')
             decoded = js_stdout.read()  
             js_stdout.close()
 
             js_stderr.close()
-            js_stderr = open(current_filename+'.stderr', 'rb')
+            js_stderr = open(current_filename + '.stderr', 'rb')
             errors = js_stderr.read()   
             js_stderr.close()
 
             if timeLimitExceededReason:
-                self.rooturl[self.url].log(True,2,'%s %d bytes' % (timeLimitExceededReason,len(decoded)))
+                self.rooturl[self.url].log(True, 2, '%s %d bytes' % (timeLimitExceededReason, len(decoded)))
                 self.rooturl[self.url].setMalicious(2)
 
             if self.OPTIONS.debug:
                 self.rooturl[self.url].dbgobj.addLaunch(current_filename)
             else:
-                os.remove(current_filename+'.js')
-                os.remove(current_filename+'.stdout')
-                os.remove(current_filename+'.stderr')
+                os.remove(current_filename + '.js')
+                os.remove(current_filename + '.stdout')
+                os.remove(current_filename + '.stderr')
             
 
             if errors:
-                errors = re.sub('\n\s*$','',errors) #trailing newlines go away
-                errors = re.sub('tmpsha1_[0-9a-f]+\.js:','line:',errors) #temp filenames go away
-                res = re.search('(Type|Reference)Error: (.*) is (not |un)defined',errors)
-                ses = re.search('SyntaxError: illegal character:',errors)
-                tes = re.search('TypeError: (.*) is not a function',errors)
+                errors = re.sub('\n\s*$', '', errors) #trailing newlines go away
+                errors = re.sub('tmpsha1_[0-9a-f]+\.js:', 'line:', errors) #temp filenames go away
+                res = re.search('(Type|Reference)Error: (.*) is (not |un)defined', errors)
+                ses = re.search('SyntaxError: illegal character:', errors)
+                tes = re.search('TypeError: (.*) is not a function', errors)
                 
                 if ses:
                     #if self.OPTIONS.debug:
                     #   print 'illegal chars fixing (%d)' % fixErrors
                     if fixErrors > 0:
                         stripped = cleanChars(to_write) #re.sub('[\x00-\x19\x7f-\xff]','',to_write)
-                        newdecoded,runTime = self.decodeJShelper(stripped,fixErrors-1)
+                        newdecoded, runTime = self.decodeJShelper(stripped, fixErrors - 1)
                         if len(newdecoded) >= len(decoded):
                             decoded = newdecoded
                 elif res:
                     if fixErrors > 0:
                         if res.group(2).startswith('\\'): #a binary sequence shouldn't occur as a variable name
                             stripped = cleanChars(to_write) #re.sub('[\x00-\x19\x7f-\xff]','',to_write)
-                            newdecoded,runTime = self.decodeJShelper(stripped,fixErrors-1)
+                            newdecoded, runTime = self.decodeJShelper(stripped, fixErrors - 1)
                             if len(newdecoded) >= len(decoded):
                                 decoded = newdecoded
                         else:
-                            self.rooturl[self.url].log(self.OPTIONS.veryverbose,-1,'undefined variable %s' % (res.group(2)))
-                            to_write = 'var %s = 1;\n%s' % (res.group(2),to_write)
-                            newdecoded,runTime = self.decodeJShelper(to_write,fixErrors-1)
+                            self.rooturl[self.url].log(self.OPTIONS.veryverbose, -1, 'undefined variable %s' % (res.group(2)))
+                            to_write = 'var %s = 1;\n%s' % (res.group(2), to_write)
+                            newdecoded, runTime = self.decodeJShelper(to_write, fixErrors - 1)
                             if len(newdecoded) >= len(decoded):
                                 decoded = newdecoded
                 elif tes:
                     if fixErrors > 0:
                         #we could try to reconstruct the function by looking in decodings
                         #(same thing with variables)
-                        self.rooturl[self.url].log(self.OPTIONS.veryverbose,-1,'undefined function %s' % (tes.group(1)))
-                        to_write = '%s = function (a){}\n%s' % (tes.group(1),to_write)
-                        newdecoded,runTime = self.decodeJShelper(to_write,fixErrors-1)  
+                        self.rooturl[self.url].log(self.OPTIONS.veryverbose, -1, 'undefined function %s' % (tes.group(1)))
+                        to_write = '%s = function (a){}\n%s' % (tes.group(1), to_write)
+                        newdecoded, runTime = self.decodeJShelper(to_write, fixErrors - 1)  
                         if len(newdecoded) >= len(decoded):
                             decoded = newdecoded
                 else:
-                    if re.search('SyntaxError: ((illegal|invalid|unexpected end of) XML|syntax error)',errors):
+                    if re.search('SyntaxError: ((illegal|invalid|unexpected end of) XML|syntax error)', errors):
                         pass #self.rooturl[self.url].log(self.OPTIONS.veryverbose,-1,'expecting JavaScript, got HTML')
                     else:
-                        self.rooturl[self.url].log(self.OPTIONS.veryverbose,-1,'%s' % re.sub('\n','\n\terror: ',errors))
+                        self.rooturl[self.url].log(self.OPTIONS.veryverbose, -1, '%s' % re.sub('\n', '\n\terror: ', errors))
         except Exception, e:
-            self.rooturl[self.url].log(self.OPTIONS.veryverbose,-1,'Error: Fatal error in decodeJS: %s (probably you are missing "js" in your path)' % e)
-            return '',(time.time()-begin)
+            self.rooturl[self.url].log(self.OPTIONS.veryverbose, -1, 'Error: Fatal error in decodeJS: %s (probably you are missing "js" in your path)' % e)
+            return '', (time.time() - begin)
 
-        return decoded,(time.time()-begin)
+        return decoded, (time.time() - begin)
 
     def build_url_from_path(self, path):
         ''' Build a full URL from possible components/pieces
@@ -403,25 +413,25 @@ class jsunpack:
         '''
         if path.find('\\/') > -1:
             #fix escaped slashes
-            path = re.sub('\\\/','/',path)
+            path = re.sub('\\\/', '/', path)
 
         if path.startswith('http') or path.startswith('//'):
-            return re.sub('^[https]*:?//','',path)
+            return re.sub('^[https]*:?//', '', path)
         if path.startswith('hcp:'):
             return path
         if path.startswith('/'):
             if self.url.startswith('/'):
                 server = '127.0.0.1'
             else:
-                server = re.sub('([^/])/.*$','\\1',self.url)
+                server = re.sub('([^/])/.*$', '\\1', self.url)
             return server + path
 
         #relative, preserve directory (unless its a file)
-        serverpath = re.sub('/[^\/]*$','/',self.url)
+        serverpath = re.sub('/[^\/]*$', '/', self.url)
         if self.url.startswith('/'): #its a file
             serverpath = '127.0.0.1/'
 
-        result = serverpath+path
+        result = serverpath + path
         spaces = result.find(' ')
         if spaces > -1:
             lessthan = result.find('<')
@@ -431,33 +441,33 @@ class jsunpack:
                 result = result[:spaces]
         return result
 
-    def find_urls(self, data, tcpaddr = []):
+    def find_urls(self, data, tcpaddr=[]):
         '''returns JavaScript (if it exists)'''
         jsdata = ''
 
         if data.find('http:') > -1:
-            varurl = re.findall('var[^=]*=[\\\'" ]+(http:[^\'"\n]+)[\\\'"]',data,re.IGNORECASE)
+            varurl = re.findall('var[^=]*=[\\\'" ]+(http:[^\'"\n]+)[\\\'"]', data, re.IGNORECASE)
             for i in varurl:
                 if i.find('\\/') != -1:
-                    i = re.sub('\\\/','/',i)
+                    i = re.sub('\\\/', '/', i)
                 
-                i = re.sub('^[https]+://','',i)
-                self.rooturl[self.url].setChild(i,'jsvar')
-                self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[javascript variable] URL=%s' % i)
+                i = re.sub('^[https]+://', '', i)
+                self.rooturl[self.url].setChild(i, 'jsvar')
+                self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[javascript variable] URL=%s' % i)
 
-        metarefresh = re.findall('content\s*=\s*[\\\'"]?\d+\s*;\s*url\s*=\s*([^ \r\\\'"]+)',data,re.IGNORECASE)
+        metarefresh = re.findall('content\s*=\s*[\\\'"]?\d+\s*;\s*url\s*=\s*([^ \r\\\'"]+)', data, re.IGNORECASE)
         for i in metarefresh:
             i = self.build_url_from_path(i)
-            self.rooturl[self.url].setChild(i,'metarefresh')
-            self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[meta refresh] URL=%s' % i)
+            self.rooturl[self.url].setChild(i, 'metarefresh')
+            self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[meta refresh] URL=%s' % i)
 
         if data.find('//jsunpack.url') > -1:
-            fetch = re.findall('//jsunpack.url (.*?) = (.*?)\n',data)
+            fetch = re.findall('//jsunpack.url (.*?) = (.*?)\n', data)
             #//jsunpack.url setAttribute src = URL
-            for desc,i in fetch:
+            for desc, i in fetch:
                 i = self.build_url_from_path(i)
-                self.rooturl[self.url].setChild(i,desc) 
-                self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[%s] URL=%s' % (desc,i))
+                self.rooturl[self.url].setChild(i, desc) 
+                self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[%s] URL=%s' % (desc, i))
 
         if data.find(' src=') > -1:
             iframe = re.findall('<(i?frame|embed|script|img|input)[^>]*?[ ]+src=\\\\?[\\\'"]?(.*?)\\\\?[\\\'"> ]', data, re.IGNORECASE)
@@ -472,28 +482,28 @@ class jsunpack:
                         lt = LT
                     if lt > -1:
                         jsdata += re.sub('%([a-fA-F0-9]{2})', lambda mo: convert(mo.group(1)), i[lt:])
-                self.rooturl[self.url].setChild(i,type)
-                self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[%s] %s' % (type,i))
+                self.rooturl[self.url].setChild(i, type)
+                self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[%s] %s' % (type, i))
         if data.find('<link ') > -1:
             links = re.findall('<(link)[^>]*?[ ]+href=\\\\?[\\\'"]?(.*?)\\\\?[\\\'"> ]', data, re.IGNORECASE)
             for type, i in links:
                 type = type.lower()
                 i = self.build_url_from_path(i)
 
-                self.rooturl[self.url].setChild(i,type)
+                self.rooturl[self.url].setChild(i, type)
         if data.find(' archive=') > -1:
             #Ex. <applet mayscript='true' code='bpac.a.class' archive='bnktjvdpxuko4.jar
             jars = re.findall('<(applet|object)([^>]*)[ ]+archive=\\\\?[\\\'"]?(.*?)\\\\?[\\\'"> ]', data, re.IGNORECASE)
             for type, other_text, i in jars:
                 i = self.build_url_from_path(i)
-                self.rooturl[self.url].setChild(i,type)
+                self.rooturl[self.url].setChild(i, type)
             
         return jsdata            
 
-    def strings(self,data):
+    def strings(self, data):
         out = []
         readable = re.compile('[\w\s\.\-_=:\$\(\)\\/\'\"\?\&]{4,}')
-        matches = readable.findall(data,re.IGNORECASE)
+        matches = readable.findall(data, re.IGNORECASE)
         if matches:
             for match in matches:
                 match = match.strip()
@@ -502,29 +512,29 @@ class jsunpack:
                     out.append(match)
         return out
 
-    def signature(self,data,level, tcpaddr = [], isPDF = True):
+    def signature(self, data, level, tcpaddr=[], isPDF=True):
         if self.OPTIONS.debug:
             self.rooturl[self.url].dbgobj.addTimer()
 
         hits = self.SIGS.process(data, level, isPDF)
         
         maxImpact = 0
-        for id,ref,detect,impact,rulemsg in hits:
+        for id, ref, detect, impact, rulemsg in hits:
             if impact > maxImpact:
                 maxImpact = impact
         if maxImpact <= 5:
-            hitsAlt = self.SIGSalt.process(re.sub('[^a-zA-Z]','',data), level, isPDF)
+            hitsAlt = self.SIGSalt.process(re.sub('[^a-zA-Z]', '', data), level, isPDF)
             for h in hitsAlt:
                 if not h in hits:
                     hits.append(h)
         
-        for id,ref,detect,impact,rulemsg in hits:
+        for id, ref, detect, impact, rulemsg in hits:
             self.rooturl[self.url].setMalicious(impact)
 
             alerttxt = []
             for msg in detect:
                 if msg.startswith('//shellcode '):
-                    self.handle_shellcode(msg,tcpaddr,isPDF)
+                    self.handle_shellcode(msg, tcpaddr, isPDF)
                 else:
                     alerttxt.append(msg)
             if alerttxt:
@@ -542,7 +552,7 @@ class jsunpack:
                     tmptxt += ' ' + ' '.join(ref)
                 tmptxt += ' detected %s' % (' '.join(detected))
 
-                self.rooturl[self.url].log(True,impact, tmptxt)
+                self.rooturl[self.url].log(True, impact, tmptxt)
                 if impact > 5: #only log malicious
                     self.log_ips()
 
@@ -554,19 +564,19 @@ class jsunpack:
             ip = self.rooturl[self.url].getIP()
             if (not ip in self.ips) and ip != '0.0.0.0':
                 if not self.internal_addr(ip):
-                    iplog = open(self.OPTIONS.log_ips,'a')
-                    iplog.write('IP\t%s\t%d\n' % (ip,time.mktime(time.localtime())))
+                    iplog = open(self.OPTIONS.log_ips, 'a')
+                    iplog.write('IP\t%s\t%d\n' % (ip, time.mktime(time.localtime())))
                     iplog.close()
                     self.ips.append(ip)
                     
-            hostname,dstport = self.hostname_from_url(self.url)
+            hostname, dstport = self.hostname_from_url(self.url)
             if hostname and (not hostname in self.ips):
-                iplog = open(self.OPTIONS.log_ips,'a')
-                iplog.write('DM\t%s\t%d\n' % (hostname,time.mktime(time.localtime())))
+                iplog = open(self.OPTIONS.log_ips, 'a')
+                iplog.write('DM\t%s\t%d\n' % (hostname, time.mktime(time.localtime())))
                 iplog.close()
                 self.ips.append(hostname)
 
-    def handle_shellcode(self,detect,tcpaddr,isPDF = False):
+    def handle_shellcode(self, detect, tcpaddr, isPDF=False):
         #hex = re.match('//shellcode .*? = (.*)$', detect)
         hex = re.match('//shellcode (pdf|len) (\d+) .*? = (.*)$', detect)
 
@@ -581,7 +591,7 @@ class jsunpack:
 
             if len(value_new) > 50:
                 #only flag shellcode > 50 length
-                self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, value_new,'shellcode')
+                self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, value_new, 'shellcode')
                 
                 impact = 5
                 if isPDF:
@@ -589,56 +599,56 @@ class jsunpack:
                     impact = 7 
                     self.log_ips()
 
-                self.rooturl[self.url].log(True,impact,'shellcode of length %d/%s' % (len(value_new), sclen))
+                self.rooturl[self.url].log(True, impact, 'shellcode of length %d/%s' % (len(value_new), sclen))
                 self.rooturl[self.url].setMalicious(impact)
 
             for t in self.strings(value_new):
                 if t.count('.com') + t.count('http'):
-                    t = re.sub('^.*?[http]+://','',t)
+                    t = re.sub('^.*?[http]+://', '', t)
 
                     self.log_ips()
-                    self.rooturl[self.url].setChild(t,'shellcode')
+                    self.rooturl[self.url].setChild(t, 'shellcode')
                     self.rooturl[self.url].setMalicious(8)
-                    self.rooturl[self.url].log(True,8,'shellcode URL=%s' % (t))
+                    self.rooturl[self.url].log(True, 8, 'shellcode URL=%s' % (t))
             
             if len(value_new) > 100000:
                 pass #out += '\t[info] shellcode overly large, not handling XOR'
             elif not self.OPTIONS.fasteval: # don't perform XOR operation in favor of performance
-                for key in range(1,255):
+                for key in range(1, 255):
                     tmp = ''
-                    for x in range(0,len(value_new)):
+                    for x in range(0, len(value_new)):
                         tmp += chr(ord(value_new[x]) ^ int(key))
                     results = tmp.count('.com') + tmp.count('http')
                     if results: 
-                        self.rooturl[self.url].log(True,10,'XOR key [shellcode]: %d' % (key))
+                        self.rooturl[self.url].log(True, 10, 'XOR key [shellcode]: %d' % (key))
                         self.log_ips()
 
                         for t in self.strings(tmp):
                             if t.count('.com') + t.count('http'):
-                                t = re.sub('^.*?[http]+://','',t)
+                                t = re.sub('^.*?[http]+://', '', t)
 
-                                self.rooturl[self.url].setChild(t,'shellcode')
+                                self.rooturl[self.url].setChild(t, 'shellcode')
                                 self.rooturl[self.url].setMalicious(10)
-                                self.rooturl[self.url].log(True,10,'shellcode [xor] URL=%s' % (t))
+                                self.rooturl[self.url].log(True, 10, 'shellcode [xor] URL=%s' % (t))
                     
-    def dechunk(self,input):
+    def dechunk(self, input):
         try:
             data = input
             decoded = ''
-            chunk_pos = data.find('\n')+1
-            chunked = int('0x'+data[:chunk_pos],0)
+            chunk_pos = data.find('\n') + 1
+            chunked = int('0x' + data[:chunk_pos], 0)
             while(chunked > 0):
                 #decode it!
-                decoded += data[chunk_pos:chunked+chunk_pos]
-                data = data[chunk_pos+chunked+2:] #+2 skips \r\n
+                decoded += data[chunk_pos:chunked + chunk_pos]
+                data = data[chunk_pos + chunked + 2:] #+2 skips \r\n
                 
-                chunk_pos = data.find('\n')+1
-                chunked = int('0x'+data[:chunk_pos],0)
+                chunk_pos = data.find('\n') + 1
+                chunked = int('0x' + data[:chunk_pos], 0)
             return decoded
         except:
             return input
 
-    def degzip(self,gzip_data): 
+    def degzip(self, gzip_data): 
         try:
             out = gzip_data #default in case of failure
             datafile = StringIO.StringIO(gzip_data)
@@ -689,16 +699,16 @@ class jsunpack:
                 method, uri = http.group(1), http.group(2)
             
             #header = re.search('^(.*?):\s*(\S+)\s*$',line)
-            header = re.search('^(.*?):\s*(.+)\s*$',line)
+            header = re.search('^(.*?):\s*(.+)\s*$', line)
             if header:
                 type, value = header.group(1).lower(), header.group(2)
-                value = re.sub('\r','',value)
+                value = re.sub('\r', '', value)
                 if type == 'host':
                     host = value
                 if type == 'referer':
                     referer = canonicalize(value)
 
-            if re.search('^\r?$',line):
+            if re.search('^\r?$', line):
                 if method:
                     if not host:
                         host = dst
@@ -706,14 +716,14 @@ class jsunpack:
                     fulluri = uri.find(host)
                     if -1 < fulluri <= 8:
                         #replace uri to remove host
-                        uri = uri[fulluri+len(host):]
+                        uri = uri[fulluri + len(host):]
                     
                     get_url = host + uri
 
                     #Everything has start as its parent (if its a pcap/interface)
                     if not self.start in self.rooturl:
                         self.rooturl[self.start] = urlattr(self.rooturl, self.start)
-                    self.rooturl[self.start].setTcpMethod(get_url,tcp.addr,method)
+                    self.rooturl[self.start].setTcpMethod(get_url, tcp.addr, method)
 
                     http_request.append([method, host, uri, referer])
                     method = uri = host = ''
@@ -751,7 +761,7 @@ class jsunpack:
                     if length > 0 and length != len(collected_data):
                         if self.OPTIONS.veryverbose:
                             print '[warning] http response header len = %d, actual len = %d' % (length, len(collected_data))
-                    http_response.append([previouscode,collected_data,is_gzipped,is_chunked,is_redir,lastModified])
+                    http_response.append([previouscode, collected_data, is_gzipped, is_chunked, is_redir, lastModified])
                     collected_data = ''
                     collect = 0
                     length = 0
@@ -760,10 +770,10 @@ class jsunpack:
                 is_gzipped = is_chunked = 0
                 is_redir = ''
 
-            header = re.search('^([^:]*):\s*(.*)\s*$',line)
+            header = re.search('^([^:]*):\s*(.*)\s*$', line)
             if header:
                 _value_with_case = header.group(2)
-                _value_with_case = re.sub('\r','',_value_with_case)
+                _value_with_case = re.sub('\r', '', _value_with_case)
                 type, value = header.group(1).lower(), _value_with_case.lower()
 
                 if type == 'transfer-encoding':
@@ -773,7 +783,7 @@ class jsunpack:
                     if value.find('gzip') >= 0:
                         is_gzipped = 1
                 if type == 'content-length':
-                    h_len = re.search('^(\d+)',value)
+                    h_len = re.search('^(\d+)', value)
                     length = int(h_len.group(1))
 
                 if type == 'last-modified':
@@ -796,19 +806,19 @@ class jsunpack:
             if collect:
                 collected_data += line + '\n'
 
-            if re.search('^\r?$',line):
+            if re.search('^\r?$', line):
                 if code:
                     collect = 1     
 
         #if there is no trailing newline, handle the last response
         if collect and code:
-            http_response.append([code,collected_data,is_gzipped,is_chunked,is_redir,lastModified])
+            http_response.append([code, collected_data, is_gzipped, is_chunked, is_redir, lastModified])
 
-        for i in range(0,len(http_response)):
+        for i in range(0, len(http_response)):
             url = ''
             if i < len(http_request):
                 method, host, uri, referer = http_request[i]
-                url = canonicalize(host+uri)
+                url = canonicalize(host + uri)
             else:
                 method = host = uri = referer = ''
                 print '[warning] http_request information not available for ', tcp.addr
@@ -822,34 +832,34 @@ class jsunpack:
                 
             if redir:
                 if not redir.startswith('http'):
-                    redir = host+redir
-                redir = re.sub('^https?://','',redir)
+                    redir = host + redir
+                redir = re.sub('^https?://', '', redir)
                 redir = canonicalize(redir)
 
-                self.rooturl[url].setChild(redir,'server_redirect')
+                self.rooturl[url].setChild(redir, 'server_redirect')
             if referer:
                 if referer in self.rooturl:
-                    self.rooturl[referer].setChild(url,'refer')
+                    self.rooturl[referer].setChild(url, 'refer')
 
-            self.main_decoder(data,url,tcp.addr,lastModified)
+            self.main_decoder(data, url, tcp.addr, lastModified)
                            
 
-    def internal_addr(self,ipin):
+    def internal_addr(self, ipin):
         '''returns True if 127.*, or other internal addr'''
-        ip = struct.unpack('=L',socket.inet_aton(ipin))[0]
+        ip = struct.unpack('=L', socket.inet_aton(ipin))[0]
 
         blocks = [
                     ['127.0.0.0', 8],
                     ['10.0.0.0', 8],
                     ['192.168.0.0', 16],
                     ['172.16.0.0', 12]    ]
-        for block,n in blocks:
-            ipnet = struct.unpack('=L',socket.inet_aton(block))[0] & (2L<<n-1) - 1
+        for block, n in blocks:
+            ipnet = struct.unpack('=L', socket.inet_aton(block))[0] & (2L << n - 1) - 1
             if ipnet | ip == ipnet:
                 return True
         return False
     
-    def hostname_from_url(self,url):
+    def hostname_from_url(self, url):
         '''returns [hostname,port]'''
         hostname = '0.0.0.0'
         dstport = 80
@@ -863,30 +873,30 @@ class jsunpack:
             colonIndex = hostname.find(':')
             if colonIndex > -1:
                 try:
-                    dstport = int(hostname[colonIndex+1:])
+                    dstport = int(hostname[colonIndex + 1:])
                 except:
                     pass #ignore errors in port
                 hostname = hostname[:colonIndex]
 
-        return hostname,dstport
+        return hostname, dstport
 
-    def fetch(self,url):
+    def fetch(self, url):
         if url.startswith('hcp:'):
-            return 'Not fetching (hcp url)',''
+            return 'Not fetching (hcp url)', ''
 
         self.url = canonicalize(url)
 
         #self.rooturl must already have an entry for url
         if not self.url in self.rooturl:
-            self.rooturl[self.url] = urlattr(self.rooturl,self.url)            
+            self.rooturl[self.url] = urlattr(self.rooturl, self.url)            
 
         if self.url.startswith('127.0.0.1'):
             self.rooturl[self.url].malicious = urlattr.DONT_ANALYZE
-            return 'Not fetching (local file)',''
+            return 'Not fetching (local file)', ''
 
         refer = ''
         for parenturl in self.rooturl:
-            for type,child in self.rooturl[parenturl].children:
+            for type, child in self.rooturl[parenturl].children:
                 if url == child:
                     refer = parenturl
 
@@ -895,16 +905,16 @@ class jsunpack:
         self.rooturl[self.url].status = '\t(referer=%s)\n' % (refer)
         fname = ''
         try:
-            hostname,dstport = self.hostname_from_url(url)
+            hostname, dstport = self.hostname_from_url(url)
 
             if self.OPTIONS.proxy and (not self.OPTIONS.currentproxy):
                 proxies = self.OPTIONS.proxy.split(',')
-                self.OPTIONS.currentproxy = proxies[random.randint(0,len(proxies)-1)]
+                self.OPTIONS.currentproxy = proxies[random.randint(0, len(proxies) - 1)]
                 if not self.OPTIONS.quiet:
                     print '[fetch config] random proxy %s' % (self.OPTIONS.currentproxy)
 
-            request = urllib2.Request('http://'+url)
-            request.add_header('Referer', 'http://'+refer)
+            request = urllib2.Request('http://' + url)
+            request.add_header('Referer', 'http://' + refer)
             request.add_header('User-Agent', 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.0)')
 
             if self.OPTIONS.currentproxy:
@@ -918,16 +928,16 @@ class jsunpack:
 
             if len(remote) > 0:
                 if len(remote) > 31457280:
-                    return 'Not fetching (large file)',''                   
+                    return 'Not fetching (large file)', ''                   
                 try:
-                    fname = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, remote,'fetch')
-                    self.rooturl[self.url].status += '\tsaved %d bytes %s\n' % (len(remote),fname)
+                    fname = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, remote, 'fetch')
+                    self.rooturl[self.url].status += '\tsaved %d bytes %s\n' % (len(remote), fname)
 
                     resolved = socket.gethostbyname(hostname)
-                    self.rooturl[self.url].tcpaddr = [['0.0.0.0',0],[resolved,dstport]]
+                    self.rooturl[self.url].tcpaddr = [['0.0.0.0', 0], [resolved, dstport]]
                 except:
                     pass #fail to lookupagain? odd hmm
-                self.main_decoder(remote,url) 
+                self.main_decoder(remote, url) 
             else:
                 self.rooturl[self.url].malicious = urlattr.ANALYZED
 
@@ -937,12 +947,12 @@ class jsunpack:
         
         return self.rooturl[self.url].status, fname
 
-    def main_decoder(self, data, url, tcpaddr = [], lastModified = ''):
+    def main_decoder(self, data, url, tcpaddr=[], lastModified=''):
         url = canonicalize(url)
         self.url = url
         self.lastModified = lastModified
         if not self.url in self.rooturl:
-            self.rooturl[self.url] = urlattr(self.rooturl,self.url,tcpaddr) #initialization
+            self.rooturl[self.url] = urlattr(self.rooturl, self.url, tcpaddr) #initialization
         self.rooturl[self.url].setMalicious(urlattr.ANALYZED)
         predecoded = data
         level = 0
@@ -950,13 +960,13 @@ class jsunpack:
         if self.OPTIONS.debug:
             import debug
             if not hasattr(self.rooturl[self.url], 'dbgobj'):
-                self.rooturl[self.url].dbgobj = debug.DebugStats(self.url,self.OPTIONS.tmpdir)
+                self.rooturl[self.url].dbgobj = debug.DebugStats(self.url, self.OPTIONS.tmpdir)
 
             self.rooturl[self.url].dbgobj.start_main()
 
         #Save all file streams
         if self.OPTIONS.saveallfiles:
-            self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data,'stream')
+            self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data, 'stream')
 
         isMZ = False
         if data.startswith('MZ'):
@@ -964,19 +974,19 @@ class jsunpack:
             self.rooturl[self.url].filetype = 'MZ'
             self.binExists = True
             if self.OPTIONS.saveallexes:    
-                sha1exe = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data,'executable')
+                sha1exe = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data, 'executable')
             else:
-                self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[%d] executable file' % (level))
+                self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[%d] executable file' % (level))
             
 
-        pdfjs,pdfjs_header = '',''
+        pdfjs, pdfjs_header = '', ''
         if 0 <= data[0:1024].find('%PDF-') <= 1024:
             isPDF = True
             self.rooturl[self.url].filetype = 'PDF'
-            mypdf = pdf.pdf(data,'PDF-'+self.url)
+            mypdf = pdf.pdf(data, 'PDF-' + self.url)
             if mypdf.is_valid():
                 mypdf.parse()
-                pdfjs,pdfjs_header = mypdf.getJavaScript()
+                pdfjs, pdfjs_header = mypdf.getJavaScript()
         else:
             isPDF = False
 
@@ -985,28 +995,28 @@ class jsunpack:
             isSWF = True
             self.rooturl[self.url].filetype = 'SWF'
 
-            msgs,urls = swf.swfstream(data)
+            msgs, urls = swf.swfstream(data)
             for url in urls:
-                swfjs_obj = re.search('javascript:(.*)',url,re.I)
+                swfjs_obj = re.search('javascript:(.*)', url, re.I)
                 if swfjs_obj:
                     swfjs += swfjs_obj.group(1) + '\n'
                 else:
                     #url only
-                    multi = re.findall('https?:\/\/([^\s<>\'"]+)',url)
+                    multi = re.findall('https?:\/\/([^\s<>\'"]+)', url)
                     if multi:
                         for m in multi:
-                            self.rooturl[self.url].setChild(m,'swfurl')
+                            self.rooturl[self.url].setChild(m, 'swfurl')
                     else:
                         #no http
                         if url.startswith('/'):
                             #relative root path
-                            firstdir = re.sub('([^/])/.*$','\\1',self.url)
+                            firstdir = re.sub('([^/])/.*$', '\\1', self.url)
                             m = firstdir + url
                         else:
                             #relative preserve directory path
-                            lastdir = re.sub('/[^\/]*$','/',self.url)
+                            lastdir = re.sub('/[^\/]*$', '/', self.url)
                             m = lastdir + url
-                        self.rooturl[self.url].setChild(m,'swfurl')
+                        self.rooturl[self.url].setChild(m, 'swfurl')
         else:
             isSWF = False
 
@@ -1023,8 +1033,8 @@ class jsunpack:
                 #pdf files are treated as "decodings" therefore level 1 should be ignored for this step
                 predecoded = pdfjs_header + predecoded
                 
-            self.signature(predecoded,level,tcpaddr,isPDF)
-            jsinurls = self.find_urls(predecoded,tcpaddr)
+            self.signature(predecoded, level, tcpaddr, isPDF)
+            jsinurls = self.find_urls(predecoded, tcpaddr)
 
             if self.OPTIONS.nojs: #don't decode anything
                 decoded = ''
@@ -1033,20 +1043,20 @@ class jsunpack:
                 path = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, decoded, 'decoding')
 
                 if len(pdfjs_header) > 0:
-                    self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[decodingLevel=%d] JavaScript in PDF %d bytes, with %d bytes headers' % (level,len(decoded)-len(pdfjs_header),len(pdfjs_header)))
+                    self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[decodingLevel=%d] JavaScript in PDF %d bytes, with %d bytes headers' % (level, len(decoded) - len(pdfjs_header), len(pdfjs_header)))
                 else:
-                    self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[decodingLevel=%d] JavaScript in PDF %d bytes (%s)' % (level,len(decoded),path))
+                    self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[decodingLevel=%d] JavaScript in PDF %d bytes (%s)' % (level, len(decoded), path))
                 pdfjs = '' #only once
 
             elif swfjs:
                 decoded = swfjs
                 path = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, decoded, 'decoding')
-                self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[decodingLevel=%d] JavaScript in SWF %d bytes (%s)' % (level,len(decoded),path))
+                self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[decodingLevel=%d] JavaScript in SWF %d bytes (%s)' % (level, len(decoded), path))
                 swfjs = '' #only once
 
             elif self.SIGS.has_javascript(predecoded):
-                self.rooturl[self.url].log(self.OPTIONS.verbose,0,'[decodingLevel=%d] found JavaScript' % (level))
-                decoded = self.decodeJS(predecoded,isPDF)
+                self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[decodingLevel=%d] found JavaScript' % (level))
+                decoded = self.decodeJS(predecoded, isPDF)
 
                 if decoded and len(decoded) > 0:
                     path = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, decoded, 'decoding')
@@ -1058,18 +1068,18 @@ class jsunpack:
             elif self.url in self.rooturl and self.rooturl[self.url].type == 'shellcode':
                 if predecoded.startswith('MZ'):
                     self.rooturl[self.url].setMalicious(10)
-                    sha1exe = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, predecoded,'incident')
-                    self.rooturl[self.url].log(True,10,'client download shellcode URL (executable) saved (' + sha1exe + ')')
+                    sha1exe = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, predecoded, 'incident')
+                    self.rooturl[self.url].log(True, 10, 'client download shellcode URL (executable) saved (' + sha1exe + ')')
                 else:
                     self.rooturl[self.url].setMalicious(6)
-                    sha1exe = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, predecoded,'attempt')
-                    self.rooturl[self.url].log(True,6,'client download shellcode URL (non-executable) saved (' + sha1exe + ')')
+                    sha1exe = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, predecoded, 'attempt')
+                    self.rooturl[self.url].log(True, 6, 'client download shellcode URL (non-executable) saved (' + sha1exe + ')')
                 
                 try:
                     global ms
                     type = ms.buffer(predecoded)
                     if type:
-                        self.rooturl[self.url].log(True,'download shellcode URL filetype=%s' % (type))
+                        self.rooturl[self.url].log(True, 'download shellcode URL filetype=%s' % (type))
                 except:
                     pass # failure in magic library
                 decoded = '' # don't do any more decoding
@@ -1079,7 +1089,7 @@ class jsunpack:
             elif isMZ:
                 decoded = '' # don't do any more decoding
             else:
-                self.rooturl[self.url].log(self.OPTIONS.veryverbose,0,'[%d] no JavaScript' % (level))
+                self.rooturl[self.url].log(self.OPTIONS.veryverbose, 0, '[%d] no JavaScript' % (level))
                 decoded = '' # don't do any more decoding
 
             level += 1
@@ -1097,20 +1107,20 @@ class jsunpack:
         #start output
         if self.rooturl[self.url].malicious > 0:
             #save the original sample
-            sha1orig = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data,'original') 
-            self.rooturl[self.url].log(self.OPTIONS.verbose,0,'file: saved %s to (%s)' % (self.url, sha1orig))
+            sha1orig = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data, 'original') 
+            self.rooturl[self.url].log(self.OPTIONS.verbose, 0, 'file: saved %s to (%s)' % (self.url, sha1orig))
 
         if self.OPTIONS.decoded: 
             if self.OPTIONS.outdir and not os.path.exists(self.OPTIONS.outdir):
                 os.mkdir(self.OPTIONS.outdir)
 
             if os.path.exists(self.OPTIONS.decoded):
-                flog = open(self.OPTIONS.decoded,'a')
+                flog = open(self.OPTIONS.decoded, 'a')
             else:
-                flog = open(self.OPTIONS.decoded,'w')
+                flog = open(self.OPTIONS.decoded, 'w')
 
             if flog:
-                flog.write(self.rooturl[self.url].tostring('',False)[0])
+                flog.write(self.rooturl[self.url].tostring('', False)[0])
                 flog.close()
                 self.rooturl[self.url].seen = {} #reset
             else:
@@ -1119,7 +1129,7 @@ class jsunpack:
         if self.OPTIONS.debug:
             self.rooturl[self.url].dbgobj.finalize_main()
 
-    def run_nids(self,myfile = ''):
+    def run_nids(self, myfile=''):
         if myfile:
             self.forceStreams = True #forceStreams option only applies to pcap files, 
             nids.param('filename', myfile)
@@ -1128,7 +1138,7 @@ class jsunpack:
         if not self.NIDS_INIALIZED:
             nids.param('scan_num_hosts', 0)
             nids.init()
-            nids.chksum_ctl([('0.0.0.0/0',False)])  #this is to exclude checksum verification
+            nids.chksum_ctl([('0.0.0.0/0', False)])  #this is to exclude checksum verification
                                 #which in the case of proxies may cause libnids to miss traffic
             nids.register_tcp(self.handleTcpStream)
             self.NIDS_INIALIZED = True
@@ -1178,8 +1188,8 @@ def main():
     parser.add_option('-u', '--urlFetch', dest='urlfetch',
         help='actively fetch specified URL (for fully active fetch use with -a)', default='',
         action='store')
-    parser.add_option('-d', '--destination-directory', dest='outdir', 
-        help='output directory for all suspicious/malicious content', default = '', 
+    parser.add_option('-d', '--destination-directory', dest='outdir',
+        help='output directory for all suspicious/malicious content', default='',
         action='store')
     parser.add_option('-c', '--config', dest='configfile',
         help='configuration filepath (default options.config)', default='options.config',
@@ -1194,7 +1204,7 @@ def main():
         help='actively fetch URLs (only for use with pcap/file/url as input)', #default=False,
         action='store_true')
     parser.add_option('-p', '--proxy', dest='proxy',
-        help='use a random proxy from this list (comma separated)', 
+        help='use a random proxy from this list (comma separated)',
         action='store')
     parser.add_option('-P', '--currentproxy', dest='currentproxy',
         help='use this proxy and ignore proxy list from --proxy',
@@ -1209,9 +1219,9 @@ def main():
         help='shows all decoding errors (noisy)', #default=False,
         action='store_true')
     parser.add_option('-g', '--graph-urlfile', dest='graphfile',
-        help='filename for URL relationship graph, 60 URLs maximium due to library limitations', 
+        help='filename for URL relationship graph, 60 URLs maximium due to library limitations',
         action='store')
-    parser.add_option('-i','--interface', dest='interface',
+    parser.add_option('-i', '--interface', dest='interface',
         help='live capture mode, use at your own risk (example eth0)', default='',
         action='store')
     parser.add_option('-D', '--debug', dest='debug',
@@ -1238,29 +1248,29 @@ def main():
     try:
         config = ConfigParser.RawConfigParser()
         if config.read(options.configfile):
-            for path,value in config.items('paths'):
+            for path, value in config.items('paths'):
                 if value == 'NULL':
                     value = ''
                 fileopt[path] = value
 
-            for path,value in config.items('decoding'):
+            for path, value in config.items('decoding'):
                 if value == 'True': value = True
                 elif value == 'False': value = False
                 fileopt[path] = value
         else:
             print 'Warning: options.config file not found'
-    except ConfigParser.NoSectionError,e:
+    except ConfigParser.NoSectionError, e:
         print 'Fatal Error: invalid options.config file: %s' % (str(e))
         exit()
 
     for path in fileopt:
-        if hasattr(options,path):
-            if getattr(options,path):
+        if hasattr(options, path):
+            if getattr(options, path):
                 pass #cmdline has priority
             else:
-                setattr(options,path,fileopt[path])
+                setattr(options, path, fileopt[path])
         else:
-            setattr(options,path,fileopt[path])
+            setattr(options, path, fileopt[path])
 
     #these options must be int values
     options.timeout = int(options.timeout)
@@ -1269,39 +1279,39 @@ def main():
 
     #end config file 
 
-    fin = open('rules','r')
+    fin = open('rules', 'r')
     if fin:
         options.rules = fin.read()
         fin.close()
 
-    fin = open('rules.ascii','r')
+    fin = open('rules.ascii', 'r')
     if fin:
         options.rulesAscii = fin.read()
         fin.close()
         
     if options.htmlparse:
-        fin = open(options.htmlparse,'r')
+        fin = open(options.htmlparse, 'r')
         if fin:
             options.htmlparseconfig = fin.read()
             fin.close()
 
     prevRooturl = {}
     if options.interface:
-        js = jsunpack('interface', ['','',''], options)
+        js = jsunpack('interface', ['', '', ''], options)
 
     elif options.urlfetch:
         urlattr.verbose = True #shows [nothing found] entries
-        options.urlfetch = re.sub('^[https]+://','',options.urlfetch)
+        options.urlfetch = re.sub('^[https]+://', '', options.urlfetch)
         
-        js = jsunpack(options.urlfetch, ['','',''], options)
+        js = jsunpack(options.urlfetch, ['', '', ''], options)
         prevRooturl = js.rooturl
     elif args:
         for file in args:
-            fin = open(file,'rb')
+            fin = open(file, 'rb')
             mydata = fin.read()
             fin.close()
             
-            js = jsunpack(file, ['',mydata,file], options)
+            js = jsunpack(file, ['', mydata, file], options)
 
             #js.rooturl[js.start].setMalicious(urlattr.ANALYZED)
     else:
@@ -1314,7 +1324,7 @@ def main():
 
     #recursive
     if js.start in js.rooturl:
-        tmp = js.rooturl[js.start].tostring('',True)[0]
+        tmp = js.rooturl[js.start].tostring('', True)[0]
         if not options.quiet:
             print tmp
 
@@ -1325,7 +1335,7 @@ def main():
         for url in js.rooturl:
             if not options.quiet:
                 if len(js.rooturl[url].seen) <= 0:             
-                    txts = js.rooturl[url].tostring('',False)[0]
+                    txts = js.rooturl[url].tostring('', False)[0]
                     if txts:
                         print txts
 
@@ -1341,7 +1351,7 @@ def main():
                         js.rooturl[url].dbgobj.numberTotalLaunches()
                         )
                     if js.rooturl[url].dbgobj.numberTotalLaunches() > 0:
-                        print '[debug] average seconds per call is %.02f\n' % (js.rooturl[url].dbgobj.totalJsTime()/js.rooturl[url].dbgobj.numberTotalLaunches())
+                        print '[debug] average seconds per call is %.02f\n' % (js.rooturl[url].dbgobj.totalJsTime() / js.rooturl[url].dbgobj.numberTotalLaunches())
                     firstCase = 0
 
                 if js.rooturl[url].dbgobj.jsTime() > 3:
