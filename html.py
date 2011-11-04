@@ -1,14 +1,24 @@
 #!/usr/bin/python
-'''
-A simple HTML language parser. Uses the 'htmlparse.conf' file to define rules.
-Please read that file for more information on the syntax
+''' 
+Jsunpackn - A generic JavaScript Unpacker Network Edition
+Copyright (C) 2010 Blake Hartstein
+http://jsunpack.jeek.org/
 
-<Parser obj>.storage is a 'special' return field. You should only use it if you 
-wish to get the result in python instead of via an output string.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 '''
 import re
-import string
 import sys
 try:
     from bs4 import BeautifulSoup
@@ -21,20 +31,25 @@ except ImportError:
         exit(-1)
 
 class Parser:
+    '''
+    A simple HTML language parser. Uses the 'htmlparse.conf' file to define rules.
+    Please read that file for more information on the syntax
+    
+    <Parser obj>.storage is a 'special' return field. You should only use it if you 
+    wish to get the result in python instead of via an output string.
+    '''
     debug = False
     def __init__(self, htmlparseconfig):
         self.storage = []
-
         self.html_definitions = {}
         self.html_filters = {}
         self.html_parse_rules = []
-
-        #htmlparse_load 
-        if htmlparseconfig:
+        
+        try:
             htmlrules = htmlparseconfig.splitlines()
-        else:
+        except:
             htmlrules = []
-            print 'Fatal: missing htmlparse config'
+            print 'Problem while parsing HTML parsing rules'
 
         line = 0
         for htmlrule in htmlrules:
@@ -61,9 +76,10 @@ class Parser:
                                 pass
                             else:
                                 attrib[val] = True
-                        format, outvals = field[3].split(':')
+                        hformat, outvals = field[3].split(':')
                         outvals = outvals.split(',')
-                        self.html_parse_rules.append([tag, attrib, invals, format, outvals])
+                        self.html_parse_rules.append([tag, attrib, invals,
+                                                      hformat, outvals])
 
                 elif htmlrule.startswith('!filter'):
                     if len(field) > 2:
@@ -73,11 +89,10 @@ class Parser:
                     print 'fatal: invalid htmlparse.config line: %d' % line
 
         if self.debug:
-            print 'done loading htmlparse, (%d parse_rules, %d definitions, %d filters)' % (
-                len(self.html_parse_rules),
-                len(self.html_definitions),
-                len(self.html_filters)
-                )
+            print ('done loading htmlparse, (%d parse_rules, %d definitions, '
+                   '%d filters)' % (len(self.html_parse_rules), 
+                                    len(self.html_definitions), 
+                                    len(self.html_filters)))
 
 
     def htmlparse(self, data):
@@ -91,12 +106,12 @@ class Parser:
         try:
             soup = BeautifulSoup(data)
         except:
-            return '', '' #fatal error htmlparsing
+            print('Fatal error during HTML parsing')
+            return '', '' 
         
-        for tag, attrib, invals, format, outvals in self.html_parse_rules:
+        for tag, attrib, invals, hformat, outvals in self.html_parse_rules:
             for htm in soup.findAll(tag, attrib):
                 now = {}
-                raw = {}
                 ignore = False #if a negated match occurs
                 for val in invals:
                     if val.startswith('!'):
@@ -113,24 +128,44 @@ class Parser:
                         if val == '*':
                             now['*'] = ''
                         elif val == 'contents':
-                            try: now['contents'] = string.join(map(str, htm.contents))
-                            except KeyError, e: now['contents'] = ''
-                            except UnicodeEncodeError, e: now['contents'] = string.join(map(str, str(htm.contents)))
+                            try: 
+                                now['contents'] = ' '.join(map(str, 
+                                                               htm.contents))
+                            except KeyError: 
+                                now['contents'] = ''
+                            except UnicodeEncodeError: 
+                                now['contents'] = ' '.join(map(str, 
+                                                               str(htm.contents)
+                                                               ))
                         elif val == 'name':
-                            try: now['name'] = htm.name
-                            except KeyError, e: now['name'] = ''
+                            try: 
+                                now['name'] = htm.name
+                            except KeyError: 
+                                now['name'] = ''
                         else:
-                            try: now[val] = str(htm[val])
-                            except KeyError, e: now[val] = ''
+                            try: 
+                                now[val] = str(htm[val])
+                            except KeyError: 
+                                now[val] = ''
 
-                    for k in now: #normalize when assigning to variables
-                        if format in self.html_definitions: #if this fails, it means that we are trying to get the result in python
-                            if not format.startswith('raw'):
-                                now[k] = re.sub('([^a-zA-Z0-9])', lambda m: '\\x%02x' % ord(m.group(1)), now[k])
+                    #normalize when assigning to variables
+                    for k in now: 
+                        # if this fails, it means that we are trying to get the
+                        # result in python
+                        if hformat in self.html_definitions:
+                            if not hformat.startswith('raw'):
+                                now[k] = re.sub('([^a-zA-Z0-9])', 
+                                                lambda m: ('\\x%02x' 
+                                                           % ord(m.group(1))), 
+                                                now[k])
                                 now[k] = "'%s'" % now[k]
 
-                    if format in self.html_definitions: #if this fails, it means that we are trying to get the result in python
-                        myfmt = re.sub('^\s+', '', self.html_definitions[format]).split('%s')
+                    # if this fails, it means that we are trying to get the 
+                    # result in python
+                    if hformat in self.html_definitions: 
+                        myfmt = re.sub('^\s+', '', 
+                                       self.html_definitions[hformat]
+                                       ).split('%s')
                         if len(myfmt) - 1 == len(outvals):
                             lineout = ''
                             for i in range(0, len(outvals)):
@@ -139,27 +174,33 @@ class Parser:
                             lineout += myfmt[-1] + '\n'
 
                             if htm.name in self.html_filters:
-                                lineout = re.sub(self.html_filters[htm.name], '', lineout)
+                                lineout = re.sub(self.html_filters[htm.name], 
+                                                 '', lineout)
                             if '*' in self.html_filters:
-                                lineout = re.sub(self.html_filters['*'], '', lineout, re.I)
-                            if format.startswith('header'):
+                                lineout = re.sub(self.html_filters['*'], '', 
+                                                 lineout, re.I)
+                            if hformat.startswith('header'):
                                 outheader += lineout
                             else:
                                 out += lineout
                         else:
-                            print 'fatal: invalid htmlparse.config format, parameter count or definition problem'
+                            print ('fatal: invalid htmlparse.config hformat, '
+                                   'parameter count or definition problem')
                     else:
                         for i in range(0, len(outvals)):
-                            self.storage.append([format, now[outvals[i]]])
+                            self.storage.append([hformat, now[outvals[i]]])
         return str(outheader), str(out)
 
 
-if __name__ == '__main__':
+def main():
+    '''
+    Testing html Parser with pdf as input
+    '''
     Parser.debug = True
 
-    fin = open('htmlparse.config', 'r')
-    htmlparseconfig = fin.read()
-    fin.close()
+    #fin = open('htmlparse.config', 'r')
+    #htmlparseconfig = fin.read()
+    #fin.close()
 
     pdfparseconfig = '''
 !define rawSCRIPT   ;%s
@@ -172,8 +213,8 @@ if __name__ == '__main__':
     hparser = Parser(pdfparseconfig)
     #hparser = Parser(htmlparseconfig)
 
-    for file in sys.argv[1:]:
-        fin = open(file, 'rb')
+    for infile in sys.argv[1:]:
+        fin = open(infile, 'rb')
         data = fin.read()
         fin.close()
 
@@ -181,9 +222,12 @@ if __name__ == '__main__':
         parsed = parsed_header + parsed
 
         if len(parsed) > 0:
-            fout = open('%s.out' % file, 'wb')
+            fout = open('%s.out' % infile, 'wb')
             fout.write(parsed)
             fout.close()
-            print 'Wrote %s.out (%d bytes)' % (file, len(parsed))
+            print 'Wrote %s.out (%d bytes)' % (infile, len(parsed))
         else:
-            print 'Nothing parsed for %s' % file
+            print 'Nothing parsed for %s' % infile
+
+if __name__ == '__main__':
+    main()
