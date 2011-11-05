@@ -43,7 +43,7 @@ import struct
 try:
     import magic #optional
     ms = magic.open(magic.MAGIC_NONE)
-    ms.load()
+    ms.load()    
     ENABLE_MAGIC = True
 except:
     ENABLE_MAGIC = False
@@ -303,7 +303,7 @@ class jsunpack:
             js_stderr = open(current_filename + '.stderr', 'wb')
 
             if self.OPTIONS.debug:
-                self.rooturl[self.url].dbgobj.addTimer()
+                self.rooturl[self.url].dbgobj.add_timer()
 
             if not (os.path.exists(self.OPTIONS.pre) and os.path.exists(self.OPTIONS.post)):
                 exit("Fatal: Failed to find pre.js and post.js")
@@ -349,7 +349,7 @@ class jsunpack:
                 self.rooturl[self.url].setMalicious(2)
 
             if self.OPTIONS.debug:
-                self.rooturl[self.url].dbgobj.addLaunch(current_filename)
+                self.rooturl[self.url].dbgobj.add_launch(current_filename)
             else:
                 os.remove(current_filename + '.js')
                 os.remove(current_filename + '.stdout')
@@ -514,7 +514,7 @@ class jsunpack:
 
     def signature(self, data, level, tcpaddr=[], isPDF=True):
         if self.OPTIONS.debug:
-            self.rooturl[self.url].dbgobj.addTimer()
+            self.rooturl[self.url].dbgobj.add_timer()
 
         hits = self.SIGS.process(data, level, isPDF)
         
@@ -557,7 +557,7 @@ class jsunpack:
                     self.log_ips()
 
         if self.OPTIONS.debug:
-            self.rooturl[self.url].dbgobj.addDetect(data)
+            self.rooturl[self.url].dbgobj.add_detect(data)
 
     def log_ips(self):
         if self.OPTIONS.log_ips:
@@ -1346,20 +1346,20 @@ def main():
             if hasattr(js.rooturl[url], 'dbgobj'):
                 if firstCase:
                     print '[debug] TOTAL TIME (%.02f secs js, %.02f secs YARA, %d calls)' % (
-                        js.rooturl[url].dbgobj.totalJsTime(),
-                        js.rooturl[url].dbgobj.totalDetectTime(),
-                        js.rooturl[url].dbgobj.numberTotalLaunches()
+                        js.rooturl[url].dbgobj.total_js_time(),
+                        js.rooturl[url].dbgobj.total_detect_time(),
+                        js.rooturl[url].dbgobj.number_total_launches()
                         )
-                    if js.rooturl[url].dbgobj.numberTotalLaunches() > 0:
-                        print '[debug] average seconds per call is %.02f\n' % (js.rooturl[url].dbgobj.totalJsTime() / js.rooturl[url].dbgobj.numberTotalLaunches())
+                    if js.rooturl[url].dbgobj.number_total_launches() > 0:
+                        print '[debug] average seconds per call is %.02f\n' % (js.rooturl[url].dbgobj.total_js_time() / js.rooturl[url].dbgobj.number_total_launches())
                     firstCase = 0
 
-                if js.rooturl[url].dbgobj.jsTime() > 3:
+                if js.rooturl[url].dbgobj.js_time() > 3:
                     print '[debug] evaluating url %s (%d secs js, %d secs YARA, %d calls)' % (
                         url,
-                        js.rooturl[url].dbgobj.jsTime(),
-                        js.rooturl[url].dbgobj.detectTime(),
-                        js.rooturl[url].dbgobj.numberLaunches()
+                        js.rooturl[url].dbgobj.js_time(),
+                        js.rooturl[url].dbgobj.detect_time(),
+                        js.rooturl[url].dbgobj.number_launches()
                         )
 
     if options.graphfile:
