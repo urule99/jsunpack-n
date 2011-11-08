@@ -924,7 +924,10 @@ class jsunpack:
                 opener = urllib2.build_opener(proxyHandler)
             else:
                 opener = urllib2.build_opener()
-            remote = opener.open(request).read()
+            try:
+                remote = opener.open(request).read()
+            except urllib2.HTTPError, error:
+                remote = error.read() 
 
             if len(remote) > 0:
                 if len(remote) > 31457280:
