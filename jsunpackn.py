@@ -1,5 +1,5 @@
 #!/usr/bin/python
-''' 
+'''
     Jsunpackn - A generic JavaScript Unpacker Network Edition
     Copyright (C) 2010 Blake Hartstein
     http://jsunpack.jeek.org/
@@ -23,27 +23,29 @@
 
 from hashlib import sha1
 from optparse import OptionParser
+from os import makedirs
+from os.path import isdir, abspath, dirname
 from urlattr import *
 import ConfigParser
-import random
 import StringIO
-import gzip
-import signal
-import urllib2
-import socket
-import pdf
-import swf
 import detection
+import gzip
 import html
+import pdf
+import random
+import signal
+import socket
+import struct
+import subprocess
+import swf
 import sys
 import time
-import subprocess
-import struct
+import urllib2
 
 try:
     import magic #optional
     ms = magic.open(magic.MAGIC_NONE)
-    ms.load()    
+    ms.load()
     ENABLE_MAGIC = True
 except:
     ENABLE_MAGIC = False
@@ -59,7 +61,7 @@ class jsunpack:
     version = "0.3.2c (beta)"
     defaultReferer = 'www.google.com/trends/hottrends' #used by active fetching only
     ips = []
-    
+
     def __init__(self, _start, todecode, options, prevRooturl={}) :
         '''
         INPUT: These are the main input modes:
@@ -70,7 +72,7 @@ class jsunpack:
                 todecode[1]=data(mandatory)
                 todecode[2]=filename
 
-        OUTPUT: check the <jsunpack Object>.rooturl structure. To decode multiple files and not create separate trees, 
+        OUTPUT: check the <jsunpack Object>.rooturl structure. To decode multiple files and not create separate trees,
             passing rooturl between different decodings is necessary (as prevRooturl).
 
         parameters:
@@ -113,6 +115,31 @@ class jsunpack:
         self.OPTIONS.decoded = self.replaceCurrentDate(self.OPTIONS.decoded)
 
         self.hparser = html.Parser(self.OPTIONS.htmlparseconfig)
+        if not isdir(abspath(self.OPTIONS.tmpdir)):
+            try:
+                makedirs(abspath(self.OPTIONS.tmpdir))
+            except Exception, e:
+                print(e)
+                exit(1)
+        if not isdir(abspath(self.OPTIONS.outdir)):
+            try:
+                makedirs(abspath(self.OPTIONS.outdir))
+            except Exception, e:
+                print(e)
+                exit(1)
+        if not isdir(abspath(dirname(self.OPTIONS.log_ips))):
+            try:
+                makedirs(abspath(dirname(self.OPTIONS.log_ips)))
+            except Exception, e:
+                print(e)
+                exit(1)
+        if not isdir(abspath(dirname(self.OPTIONS.decoded))):
+            try:
+                makedirs(abspath(dirname(self.OPTIONS.decoded)))
+            except Exception, e:
+                print(e)
+                exit(1)
+
 
         #done setup, now initialize the decoding
         self.startTime = time.time()
@@ -121,14 +148,14 @@ class jsunpack:
         if self.OPTIONS.interface:
             nids.param('device', self.OPTIONS.interface)
             self.run_nids()
-            
+
         elif self.OPTIONS.urlfetch:
             if not self.OPTIONS.quiet:
                 print 'URL fetch %s' % (self.OPTIONS.urlfetch)
             status, fname = self.fetch(options.urlfetch)
             if not self.OPTIONS.quiet:
                 print status
-            
+
         else: #local file decode
             if not self.url:
                 if myfile:
@@ -140,7 +167,7 @@ class jsunpack:
                 self.rooturl[self.url].setMalicious(urlattr.ANALYZED)
                 if mydata.startswith('\xD4\xC3\xB2\xA1'): #pcap
                     if ENABLE_NIDS:
-                        self.run_nids(myfile)                        
+                        self.run_nids(myfile)
                     else:
                         print '[warning] %s not scanned because pynids ("import nids") failed' % (file)
                 else:
@@ -148,7 +175,7 @@ class jsunpack:
 
         if self.OPTIONS.active:
             todo = []
-            firstTime = True   
+            firstTime = True
 
             while todo or firstTime:
                 firstTime = False
@@ -165,7 +192,7 @@ class jsunpack:
                             type = '(%s) ' % (self.rooturl[url].type)
                         if not self.OPTIONS.quiet:
                             print '\tfetching URL %s%s' % (type, url) + status
-                    
+
                 for url in self.rooturl:
                     if self.rooturl[url].malicious == urlattr.NOT_ANALYZED:
                         if not (self.rooturl[url].type == 'img' or self.rooturl[url].type == 'input' or self.rooturl[url].type == 'link'):
@@ -179,10 +206,10 @@ class jsunpack:
             if curdate > 0:
                 before = variable[0:curdate]
             after = variable[curdate + len('$CURDATE'):]
-            
+
             variable = '%s%04d%02d%02d%s' % (before, yr, mo, day, after)
         return variable
-        
+
 
     def decodeVersions(self, to_write, isPDF):
         decodings = [] #there may be multiple decodings if we get different results for version strings
@@ -203,7 +230,7 @@ class jsunpack:
                     runningTime = currentRunningTime
                     duration += currentRunningTime
                     decodings.append(['app.viewerVersion=' + pdfversion, decoded])
-                
+
         else:
             need_to_write = 'var location = new my_location("%s","%s"); \n%s\n' % (self.url, self.url, to_write)
             if not self.OPTIONS.fasteval: #don't evaluate HTML en/zh-cn in favor of performance
@@ -248,12 +275,12 @@ class jsunpack:
             decodings = self.decodeVersions(to_write, isPDF)
 
             #redo decoding if we didn't decode anything
-            if not self.OPTIONS.fasteval: #in performance optimized version, we should not evaluate this option 
+            if not self.OPTIONS.fasteval: #in performance optimized version, we should not evaluate this option
                 redo = 1
                 for version, decoding in decodings:
                     if len(decoding) > 0:
                         redo = 0
-                if redo: 
+                if redo:
                     #its possible that HTML parsing failed, then we should process the original content
                     more_decode = self.decodeVersions(content, isPDF)
                     for decode in more_decode:
@@ -261,7 +288,7 @@ class jsunpack:
 
         else: #html parse failed (or was empty), treat original 'content' as JavaScript
             decodings = self.decodeVersions(content, isPDF)
-        
+
         winner = ''
         lengths = {}
         for version, decoding in decodings:
@@ -281,7 +308,7 @@ class jsunpack:
                 self.rooturl[self.url].log(self.OPTIONS.veryverbose, 0, 'Decoding option %s, \t%s bytes' % (' and '.join(lengths[a]), a))
 
         return winner
-            
+
     def decodeJShelper(self, to_write, fixErrors=3):
         if fixErrors > 1 and self.OPTIONS.fasteval:
             fixErrors = 1
@@ -313,17 +340,17 @@ class jsunpack:
             timeLimitExceededReason = ''
             while not timeLimitExceededReason and po.poll() == None:
                 curTime = time.time()
-                
+
 # Checking various timeouts -- if a timeout is hit, we'll break out of this while loop of polling doom.
                 if self.OPTIONS.timeout > 0 and (curTime - begin) >= self.OPTIONS.timeout:
-                    timeLimitExceededReason = 'script analysis exceeded %d seconds (incomplete)' % (self.OPTIONS.timeout) 
+                    timeLimitExceededReason = 'script analysis exceeded %d seconds (incomplete)' % (self.OPTIONS.timeout)
                     fixErrors = 0 #don't recurse into this function
 
                 elif self.OPTIONS.maxruntime > 0 and (curTime - self.startTime) >= self.OPTIONS.maxruntime:
                     timeLimitExceededReason = 'maxruntime exceeded %d seconds (incomplete)' % self.OPTIONS.maxruntime
                     self.OPTIONS.nojs = True #don't decode anything else
                     fixErrors = 0 #don't recurse into this function
-                else:                    
+                else:
                     time.sleep(0.05)
 
             if po.poll() == None:
@@ -336,12 +363,12 @@ class jsunpack:
 
             js_stdout.close()
             js_stdout = open(current_filename + '.stdout', 'rb')
-            decoded = js_stdout.read()  
+            decoded = js_stdout.read()
             js_stdout.close()
 
             js_stderr.close()
             js_stderr = open(current_filename + '.stderr', 'rb')
-            errors = js_stderr.read()   
+            errors = js_stderr.read()
             js_stderr.close()
 
             if timeLimitExceededReason:
@@ -354,7 +381,7 @@ class jsunpack:
                 os.remove(current_filename + '.js')
                 os.remove(current_filename + '.stdout')
                 os.remove(current_filename + '.stderr')
-            
+
 
             if errors:
                 errors = re.sub('\n\s*$', '', errors) #trailing newlines go away
@@ -362,7 +389,7 @@ class jsunpack:
                 res = re.search('(Type|Reference)Error: (.*) is (not |un)defined', errors)
                 ses = re.search('SyntaxError: illegal character:', errors)
                 tes = re.search('TypeError: (.*) is not a function', errors)
-                
+
                 if ses:
                     #if self.OPTIONS.debug:
                     #   print 'illegal chars fixing (%d)' % fixErrors
@@ -390,7 +417,7 @@ class jsunpack:
                         #(same thing with variables)
                         self.rooturl[self.url].log(self.OPTIONS.veryverbose, -1, 'undefined function %s' % (tes.group(1)))
                         to_write = '%s = function (a){}\n%s' % (tes.group(1), to_write)
-                        newdecoded, runTime = self.decodeJShelper(to_write, fixErrors - 1)  
+                        newdecoded, runTime = self.decodeJShelper(to_write, fixErrors - 1)
                         if len(newdecoded) >= len(decoded):
                             decoded = newdecoded
                 else:
@@ -450,7 +477,7 @@ class jsunpack:
             for i in varurl:
                 if i.find('\\/') != -1:
                     i = re.sub('\\\/', '/', i)
-                
+
                 i = re.sub('^[https]+://', '', i)
                 self.rooturl[self.url].setChild(i, 'jsvar')
                 self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[javascript variable] URL=%s' % i)
@@ -466,14 +493,14 @@ class jsunpack:
             #//jsunpack.url setAttribute src = URL
             for desc, i in fetch:
                 i = self.build_url_from_path(i)
-                self.rooturl[self.url].setChild(i, desc) 
+                self.rooturl[self.url].setChild(i, desc)
                 self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[%s] URL=%s' % (desc, i))
 
         if data.find(' src=') > -1:
             iframe = re.findall('<(i?frame|embed|script|img|input)[^>]*?[ ]+src=\\\\?[\\\'"]?(.*?)\\\\?[\\\'"> ]', data, re.IGNORECASE)
             for type, i in iframe:
                 type = type.lower()
-                
+
                 i = self.build_url_from_path(i)
                 if i.startswith('hcp:'):
                     lt = i.find('%3c')
@@ -497,8 +524,8 @@ class jsunpack:
             for type, other_text, i in jars:
                 i = self.build_url_from_path(i)
                 self.rooturl[self.url].setChild(i, type)
-            
-        return jsdata            
+
+        return jsdata
 
     def strings(self, data):
         out = []
@@ -517,7 +544,7 @@ class jsunpack:
             self.rooturl[self.url].dbgobj.add_timer()
 
         hits = self.SIGS.process(data, level, isPDF)
-        
+
         maxImpact = 0
         for id, ref, detect, impact, rulemsg in hits:
             if impact > maxImpact:
@@ -527,7 +554,7 @@ class jsunpack:
             for h in hitsAlt:
                 if not h in hits:
                     hits.append(h)
-        
+
         for id, ref, detect, impact, rulemsg in hits:
             self.rooturl[self.url].setMalicious(impact)
 
@@ -568,7 +595,7 @@ class jsunpack:
                     iplog.write('IP\t%s\t%d\n' % (ip, time.mktime(time.localtime())))
                     iplog.close()
                     self.ips.append(ip)
-                    
+
             hostname, dstport = self.hostname_from_url(self.url)
             if hostname and (not hostname in self.ips):
                 iplog = open(self.OPTIONS.log_ips, 'a')
@@ -581,7 +608,7 @@ class jsunpack:
         hex = re.match('//shellcode (pdf|len) (\d+) .*? = (.*)$', detect)
 
         #//shellcode len 767 (including any NOPs) payload = %u0A0A%u0A0A%u0A0A%uE1D9%u34D9%u5824%u5858
-        
+
         if hex:
             source = hex.group(1) #source (pdf|len) currently unused
             sclen = hex.group(2)
@@ -592,11 +619,11 @@ class jsunpack:
             if len(value_new) > 50:
                 #only flag shellcode > 50 length
                 self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, value_new, 'shellcode')
-                
+
                 impact = 5
                 if isPDF:
                     #greater impact because shellcode in PDF files is less likely to have false positives
-                    impact = 7 
+                    impact = 7
                     self.log_ips()
 
                 self.rooturl[self.url].log(True, impact, 'shellcode of length %d/%s' % (len(value_new), sclen))
@@ -610,7 +637,7 @@ class jsunpack:
                     self.rooturl[self.url].setChild(t, 'shellcode')
                     self.rooturl[self.url].setMalicious(8)
                     self.rooturl[self.url].log(True, 8, 'shellcode URL=%s' % (t))
-            
+
             if len(value_new) > 100000:
                 pass #out += '\t[info] shellcode overly large, not handling XOR'
             elif not self.OPTIONS.fasteval: # don't perform XOR operation in favor of performance
@@ -619,7 +646,7 @@ class jsunpack:
                     for x in range(0, len(value_new)):
                         tmp += chr(ord(value_new[x]) ^ int(key))
                     results = tmp.count('.com') + tmp.count('http')
-                    if results: 
+                    if results:
                         self.rooturl[self.url].log(True, 10, 'XOR key [shellcode]: %d' % (key))
                         self.log_ips()
 
@@ -630,7 +657,7 @@ class jsunpack:
                                 self.rooturl[self.url].setChild(t, 'shellcode')
                                 self.rooturl[self.url].setMalicious(10)
                                 self.rooturl[self.url].log(True, 10, 'shellcode [xor] URL=%s' % (t))
-                    
+
     def dechunk(self, input):
         try:
             data = input
@@ -641,14 +668,14 @@ class jsunpack:
                 #decode it!
                 decoded += data[chunk_pos:chunked + chunk_pos]
                 data = data[chunk_pos + chunked + 2:] #+2 skips \r\n
-                
+
                 chunk_pos = data.find('\n') + 1
                 chunked = int('0x' + data[:chunk_pos], 0)
             return decoded
         except:
             return input
 
-    def degzip(self, gzip_data): 
+    def degzip(self, gzip_data):
         try:
             out = gzip_data #default in case of failure
             datafile = StringIO.StringIO(gzip_data)
@@ -658,7 +685,7 @@ class jsunpack:
             gzfile.close()
             datafile.close()
         except:
-            pass 
+            pass
         return out
 
     def handleTcpStream(self, tcp):
@@ -697,7 +724,7 @@ class jsunpack:
             http = re.search('^(GET|POST|HEAD)\s+(\S+)\s+HTTP/\d\.\d', line)
             if http:
                 method, uri = http.group(1), http.group(2)
-            
+
             #header = re.search('^(.*?):\s*(\S+)\s*$',line)
             header = re.search('^(.*?):\s*(.+)\s*$', line)
             if header:
@@ -717,7 +744,7 @@ class jsunpack:
                     if -1 < fulluri <= 8:
                         #replace uri to remove host
                         uri = uri[fulluri + len(host):]
-                    
+
                     get_url = host + uri
 
                     #Everything has start as its parent (if its a pcap/interface)
@@ -734,7 +761,7 @@ class jsunpack:
                 host = dst
             http_request.append([method, host, uri, referer])
             method = uri = host = ''
-                    
+
         lines = toclient.split('\n')
         code = ''
         http_response = []
@@ -745,7 +772,7 @@ class jsunpack:
         is_redir = ''
         tObj = time.strptime('Tue, 03 Feb 2004 05:06:07 GMT', '%a, %d %b %Y %H:%M:%S %Z')
         lastModified = time.strftime('%m/%d/%Y %H:%M:%S', tObj)
-        
+
         for line in lines:
             http = re.search('^(.*)HTTP/\d\.\d\s+(\d+)', line)
             #http = re.search('^HTTP/\d\.\d\s+(\d+)', line)
@@ -756,8 +783,8 @@ class jsunpack:
 
                 if len(previousdata) > 0:
                     collected_data += previousdata
-                
-                if collect:     
+
+                if collect:
                     if length > 0 and length != len(collected_data):
                         if self.OPTIONS.veryverbose:
                             print '[warning] http response header len = %d, actual len = %d' % (length, len(collected_data))
@@ -794,7 +821,7 @@ class jsunpack:
                         lastModified = time.strftime('%m/%d/%Y %H:%M:%S', tObj)
                     except:
                         pass #ignore malformed lastModified values
-                    
+
                 if type == 'location':
                     is_redir = value
 
@@ -808,7 +835,7 @@ class jsunpack:
 
             if re.search('^\r?$', line):
                 if code:
-                    collect = 1     
+                    collect = 1
 
         #if there is no trailing newline, handle the last response
         if collect and code:
@@ -829,7 +856,7 @@ class jsunpack:
                 data = self.dechunk(data)
             if gzip or data[0:2] == '\x1f\x8b':
                 data = self.degzip(data)
-                
+
             if redir:
                 if not redir.startswith('http'):
                     redir = host + redir
@@ -842,7 +869,7 @@ class jsunpack:
                     self.rooturl[referer].setChild(url, 'refer')
 
             self.main_decoder(data, url, tcp.addr, lastModified)
-                           
+
 
     def internal_addr(self, ipin):
         '''returns True if 127.*, or other internal addr'''
@@ -858,7 +885,7 @@ class jsunpack:
             if ipnet | ip == ipnet:
                 return True
         return False
-    
+
     def hostname_from_url(self, url):
         '''returns [hostname,port]'''
         hostname = '0.0.0.0'
@@ -868,7 +895,7 @@ class jsunpack:
             hostname = url[:slashIndex] #everything before the first /
         else:
             hostname = url #everything
-        
+
         if hostname:
             colonIndex = hostname.find(':')
             if colonIndex > -1:
@@ -888,7 +915,7 @@ class jsunpack:
 
         #self.rooturl must already have an entry for url
         if not self.url in self.rooturl:
-            self.rooturl[self.url] = urlattr(self.rooturl, self.url)            
+            self.rooturl[self.url] = urlattr(self.rooturl, self.url)
 
         if self.url.startswith('127.0.0.1'):
             self.rooturl[self.url].malicious = urlattr.DONT_ANALYZE
@@ -900,7 +927,7 @@ class jsunpack:
                 if url == child:
                     refer = parenturl
 
-        if (not refer) or refer.startswith(self.OPTIONS.outdir): 
+        if (not refer) or refer.startswith(self.OPTIONS.outdir):
             refer = self.defaultReferer
         self.rooturl[self.url].status = '\t(referer=%s)\n' % (refer)
         fname = ''
@@ -920,18 +947,18 @@ class jsunpack:
             if self.OPTIONS.currentproxy:
                 if not self.OPTIONS.quiet:
                     print '[fetch config] currentproxy %s' % (self.OPTIONS.currentproxy)
-                proxyHandler = urllib2.ProxyHandler({'http': 'http://%s' % (self.OPTIONS.currentproxy) }) 
+                proxyHandler = urllib2.ProxyHandler({'http': 'http://%s' % (self.OPTIONS.currentproxy) })
                 opener = urllib2.build_opener(proxyHandler)
             else:
                 opener = urllib2.build_opener()
             try:
                 remote = opener.open(request).read()
             except urllib2.HTTPError, error:
-                remote = error.read() 
+                remote = error.read()
 
             if len(remote) > 0:
                 if len(remote) > 31457280:
-                    return 'Not fetching (large file)', ''                   
+                    return 'Not fetching (large file)', ''
                 try:
                     fname = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, remote, 'fetch')
                     self.rooturl[self.url].status += '\tsaved %d bytes %s\n' % (len(remote), fname)
@@ -940,14 +967,14 @@ class jsunpack:
                     self.rooturl[self.url].tcpaddr = [['0.0.0.0', 0], [resolved, dstport]]
                 except:
                     pass #fail to lookupagain? odd hmm
-                self.main_decoder(remote, url) 
+                self.main_decoder(remote, url)
             else:
                 self.rooturl[self.url].malicious = urlattr.ANALYZED
 
         except Exception, e:
             self.rooturl[self.url].status += '\tfailure: ' + str(e) + '\n'
             self.rooturl[self.url].malicious = urlattr.DONT_ANALYZE
-        
+
         return self.rooturl[self.url].status, fname
 
     def main_decoder(self, data, url, tcpaddr=[], lastModified=''):
@@ -976,11 +1003,11 @@ class jsunpack:
             isMZ = True
             self.rooturl[self.url].filetype = 'MZ'
             self.binExists = True
-            if self.OPTIONS.saveallexes:    
+            if self.OPTIONS.saveallexes:
                 sha1exe = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data, 'executable')
             else:
                 self.rooturl[self.url].log(self.OPTIONS.verbose, 0, '[%d] executable file' % (level))
-            
+
 
         pdfjs, pdfjs_header = '', ''
         if 0 <= data[0:1024].find('%PDF-') <= 1024:
@@ -1031,11 +1058,11 @@ class jsunpack:
         while predecoded and len(predecoded) > 0 and level < 10:
             detect_txt += predecoded
 
-            if isPDF and level > 1: 
+            if isPDF and level > 1:
                 #make pdf headers available to all future decodings
                 #pdf files are treated as "decodings" therefore level 1 should be ignored for this step
                 predecoded = pdfjs_header + predecoded
-                
+
             self.signature(predecoded, level, tcpaddr, isPDF)
             jsinurls = self.find_urls(predecoded, tcpaddr)
 
@@ -1077,7 +1104,7 @@ class jsunpack:
                     self.rooturl[self.url].setMalicious(6)
                     sha1exe = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, predecoded, 'attempt')
                     self.rooturl[self.url].log(True, 6, 'client download shellcode URL (non-executable) saved (' + sha1exe + ')')
-                
+
                 try:
                     global ms
                     type = ms.buffer(predecoded)
@@ -1104,16 +1131,16 @@ class jsunpack:
         #disabled temporarily
 
         #this way you can match original content + all decodings in one stream
-        #level is 0 because we want decodedOnly to still work, 
+        #level is 0 because we want decodedOnly to still work,
         #you can't write a decodedOnly rule to match across boundaries anyway
 
         #start output
         if self.rooturl[self.url].malicious > 0:
             #save the original sample
-            sha1orig = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data, 'original') 
+            sha1orig = self.rooturl[self.url].create_sha1file(self.OPTIONS.outdir, data, 'original')
             self.rooturl[self.url].log(self.OPTIONS.verbose, 0, 'file: saved %s to (%s)' % (self.url, sha1orig))
 
-        if self.OPTIONS.decoded: 
+        if self.OPTIONS.decoded:
             if self.OPTIONS.outdir and not os.path.exists(self.OPTIONS.outdir):
                 os.mkdir(self.OPTIONS.outdir)
 
@@ -1134,7 +1161,7 @@ class jsunpack:
 
     def run_nids(self, myfile=''):
         if myfile:
-            self.forceStreams = True #forceStreams option only applies to pcap files, 
+            self.forceStreams = True #forceStreams option only applies to pcap files,
             nids.param('filename', myfile)
             nids.init()
 
@@ -1237,7 +1264,7 @@ def main():
     #Disabled/legacy command line options
     '''
     parser.add_option('-T', '--temporary-directory', dest='tmpdir', help='output directory for temporary files (default current directory)', default = '.', action='store')
-    parser.add_option('-L', '--log-directory', dest='logdir', help='output directory for log file (default current directory)', default = '.', action='store')    
+    parser.add_option('-L', '--log-directory', dest='logdir', help='output directory for log file (default current directory)', default = '.', action='store')
     parser.add_option('-p','--ip-logfile',dest='log_ips', help='optional logfile which appends malicious domains and IP addresses', default='', action='store')
     parser.add_option('-j', '--js-directory', dest='jsdir', help='specify alternate location for pre.js and post.js (default current directory)', default = './', action='store')
     parser.add_option('-Q', '--Quit-file-output', dest='quitfile', help='do not create output files (useful if you import jsunpackn as a python class)', default=False, action='store_true')
@@ -1246,7 +1273,7 @@ def main():
     (options, args) = parser.parse_args()
 
     #Start config file options
-    fileopt = {} 
+    fileopt = {}
 
     try:
         config = ConfigParser.RawConfigParser()
@@ -1280,7 +1307,7 @@ def main():
     options.redoevaltime = int(options.redoevaltime)
     options.maxruntime = int(options.maxruntime)
 
-    #end config file 
+    #end config file
 
     fin = open('rules', 'r')
     if fin:
@@ -1291,7 +1318,7 @@ def main():
     if fin:
         options.rulesAscii = fin.read()
         fin.close()
-        
+
     if options.htmlparse:
         fin = open(options.htmlparse, 'r')
         if fin:
@@ -1305,7 +1332,7 @@ def main():
     elif options.urlfetch:
         urlattr.verbose = True #shows [nothing found] entries
         options.urlfetch = re.sub('^[https]+://', '', options.urlfetch)
-        
+
         js = jsunpack(options.urlfetch, ['', '', ''], options)
         prevRooturl = js.rooturl
     elif args:
@@ -1313,14 +1340,14 @@ def main():
             fin = open(file, 'rb')
             mydata = fin.read()
             fin.close()
-            
+
             js = jsunpack(file, ['', mydata, file], options)
 
             #js.rooturl[js.start].setMalicious(urlattr.ANALYZED)
     else:
         parser.error('no interfaces or files specified, use -h for help')
 
-    #postprocessing and printing 
+    #postprocessing and printing
     #clean history
     for url in js.rooturl:
         js.rooturl[url].seen = {}
@@ -1337,7 +1364,7 @@ def main():
         #so we can disable it!
         for url in js.rooturl:
             if not options.quiet:
-                if len(js.rooturl[url].seen) <= 0:             
+                if len(js.rooturl[url].seen) <= 0:
                     txts = js.rooturl[url].tostring('', False)[0]
                     if txts:
                         print txts
