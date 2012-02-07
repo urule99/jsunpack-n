@@ -1,3 +1,4 @@
+var zzzactivex = [];
 function Plugin(name,fname,desc){
     this.name = name;
     this.filename = fname;
@@ -55,6 +56,7 @@ var app = {
 };
 
 function my_activex(){
+    zzzactivex.push(this);
 	this.donePath = 0;
 	this.SaveToFile = this.savetofile = function (txt){ print("//jsunpack.save " + txt) }
 	this.close = function(){ }
@@ -141,6 +143,7 @@ var namezzz = {}; //for getElementByTagName
 
 //For getElementById , innerHTML
 var idzzz = []; var valzzz = []; var txtzzz = [];
+//For activex array
 
 
 function my_style(){
@@ -217,6 +220,7 @@ window.unescape = unescape;
 window.parent = window;
 window.execScript = eval;
 window.eval = eval;
+window.Option = 1;
 window.open = function (url){
     print("//jsunpack.url open = " + url) 
 };
@@ -342,31 +346,31 @@ function PlugIn(name,filename){
     this.valueOf = function(){ return this.path; }
 }
 app.plugIns = [];
-app.plugIns.push(PlugIn('Accessibility','Accessibility.api'));
-app.plugIns.push(PlugIn('Forms','AcroForm.api'));
-app.plugIns.push(PlugIn('Annots','Annots.api'));
-app.plugIns.push(PlugIn('Checkers','Checkers.api'));
-app.plugIns.push(PlugIn('DIGSIG','DigSig.api'));
-app.plugIns.push(PlugIn('ADBE:DictionaryValidationAgent','DVA.api'));
-app.plugIns.push(PlugIn('eBook','eBook.api'));
-app.plugIns.push(PlugIn('EScript','EScript.api'));
-app.plugIns.push(PlugIn('EWH','EWH32.api'));
-app.plugIns.push(PlugIn('AcroHLS','HLS.api'));
-app.plugIns.push(PlugIn('InetAxes','IA32.api'));
-app.plugIns.push(PlugIn('SVG','ImageViewer.api'));
-app.plugIns.push(PlugIn('Make Accessible','MakeAccessible.api'));
-app.plugIns.push(PlugIn('Multimedia','Multimedia.api'));
-app.plugIns.push(PlugIn('PDDom','PDDom.api'));
-app.plugIns.push(PlugIn('ppklite','PPKLite.api'));
-app.plugIns.push(PlugIn('ReadOutLoud','ReadOutLoad.api'));
-app.plugIns.push(PlugIn('Reflow','reflow.api'));
-app.plugIns.push(PlugIn('SaveAsRTF','SaveAsRTF.api'));
-app.plugIns.push(PlugIn('ADBE_Search','Search.api'));
-app.plugIns.push(PlugIn('ADBE_Search5','Search5.api'));
-app.plugIns.push(PlugIn('SendMail','SendMail.api'));
-app.plugIns.push(PlugIn('Spelling','Spelling.api'));
-app.plugIns.push(PlugIn('Updater','Updater.api'));
-app.plugIns.push(PlugIn('WebLink','weblink.api'));
+app.plugIns.push(new PlugIn('Accessibility','Accessibility.api'));
+app.plugIns.push(new PlugIn('Forms','AcroForm.api'));
+app.plugIns.push(new PlugIn('Annots','Annots.api'));
+app.plugIns.push(new PlugIn('Checkers','Checkers.api'));
+app.plugIns.push(new PlugIn('DIGSIG','DigSig.api'));
+app.plugIns.push(new PlugIn('ADBE:DictionaryValidationAgent','DVA.api'));
+app.plugIns.push(new PlugIn('eBook','eBook.api'));
+app.plugIns.push(new PlugIn('EScript','EScript.api'));
+app.plugIns.push(new PlugIn('EWH','EWH32.api'));
+app.plugIns.push(new PlugIn('AcroHLS','HLS.api'));
+app.plugIns.push(new PlugIn('InetAxes','IA32.api'));
+app.plugIns.push(new PlugIn('SVG','ImageViewer.api'));
+app.plugIns.push(new PlugIn('Make Accessible','MakeAccessible.api'));
+app.plugIns.push(new PlugIn('Multimedia','Multimedia.api'));
+app.plugIns.push(new PlugIn('PDDom','PDDom.api'));
+app.plugIns.push(new PlugIn('ppklite','PPKLite.api'));
+app.plugIns.push(new PlugIn('ReadOutLoud','ReadOutLoad.api'));
+app.plugIns.push(new PlugIn('Reflow','reflow.api'));
+app.plugIns.push(new PlugIn('SaveAsRTF','SaveAsRTF.api'));
+app.plugIns.push(new PlugIn('ADBE_Search','Search.api'));
+app.plugIns.push(new PlugIn('ADBE_Search5','Search5.api'));
+app.plugIns.push(new PlugIn('SendMail','SendMail.api'));
+app.plugIns.push(new PlugIn('Spelling','Spelling.api'));
+app.plugIns.push(new PlugIn('Updater','Updater.api'));
+app.plugIns.push(new PlugIn('WebLink','weblink.api'));
 var util = {
 	printf : function(a,b){print ("//alert CVE-2008-2992 util.printf length ("+ a.length + "," + b.length + ")\n"); },
 	printd : function(){ print("//warning CVE-2009-4324 printd access"); },
@@ -419,3 +423,4 @@ var Run = function(arg){
     print (arg);
     print ('*/');
 };
+var string = String;
