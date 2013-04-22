@@ -1016,7 +1016,7 @@ class jsunpack:
             mypdf = pdf.pdf(data, 'PDF-' + self.url)
             if mypdf.is_valid():
                 mypdf.parse()
-                pdfjs, pdfjs_header = mypdf.getJavaScript()
+                pdfjs, pdfjs_header, sloppy = mypdf.getJavaScript()
         else:
             isPDF = False
 
@@ -1056,7 +1056,10 @@ class jsunpack:
             self.rooturl[self.url].dbgobj.record_main('init')
 
         while predecoded and len(predecoded) > 0 and level < 10:
-            detect_txt += predecoded
+            try:
+                detect_txt += predecoded
+            except:
+                pass # possibly an encoding problem
 
             if isPDF and level > 1:
                 #make pdf headers available to all future decodings
