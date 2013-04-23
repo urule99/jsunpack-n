@@ -403,6 +403,7 @@ var location = new my_location('http://example.com','example.com');
 document.location = location; 
 window.location = location; 
 var windowlocation = location;
+var documentlocation = document.location;
 var control = {
 	getVersions: function(){ return 0; }
 };
