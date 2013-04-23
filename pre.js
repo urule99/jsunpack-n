@@ -424,3 +424,5 @@ var Run = function(arg){
     print ('*/');
 };
 var string = String;
+var console = new Object();
+console.println = print;
