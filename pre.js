@@ -426,4 +426,4 @@ var Run = function(arg){
 };
 var string = String;
 var console = new Object();
-console.println = print;
+console.println = function(arg){ print ("/* console.println " + arg + "*/");
