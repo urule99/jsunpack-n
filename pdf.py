@@ -498,7 +498,7 @@ class pdf:
                             self.objects[value].isEncrypt = True
                             self.encryptObject = self.populateEncryptObject(self.objects[value])
 
-                        fileID = ''
+                        fileId = ''
                         for state, tag, val in trailerobj.tags:
                             if tag == 'ID':
                                 ids = re.findall('<([\d\w]*)>', val)
