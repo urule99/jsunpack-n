@@ -1,0 +1,74 @@
+Blake Hartstein
+http://jsunpack.jeek.org/
+
+INSTALL NOTES:
+
+Required:
+1) Build and install pynids (nids) from ./depends/pynids-0.6.1.tar.gz
+	To compile pynids, you may need the following (ubuntu) packages:
+	libpcap-dev pkg-config python-dev libgtk2.0-dev libnet1-dev
+
+    $ cd depends
+    $ tar xvfz pynids-0.6.1.tar.gz
+	$ cd pynids-0.6.1/ directory
+	$ python setup.py build
+	$ sudo python setup.py install
+
+2) Build SpiderMonkey 'js' from ./depends/js-1.8.0-rc1-src.tar.gz
+
+    This package has modifications to the spidermonkey source code; therefore, it is not recommended you use default smjs packages. (Details of the modifications are in INSTALL.spidermonkey.shellcode and INSTALL.spidermonkey, for historical purposes)
+
+    $ cd depends/
+    $ tar xvfz js-1.8.0-rc1-src.tar.gz
+    $ cd js-1.8.0-rc1-src
+    $ make BUILD_OPT=1 -f Makefile.ref
+    Then, make the 'js' binary available within your path.
+    $ echo "export $PATH="
+
+3) Build and install YARA from ./depends/yara-1.6.tar.gz
+    (For Ubuntu or other systems, these packages may be required: libpcre3 libpcre3-dev)
+
+    $ cd depends
+    $ tar xvfz yara-1.6.tar.gz
+    $ cd yara-1.6
+    $ ./configure
+    $ make
+    $ sudo make install
+
+	For Ubuntu or other systems, you may need to add the following path after building:
+
+	$ sudo echo "/usr/local/lib" >> /etc/ld.so.conf
+	$ sudo ldconfig
+
+4) Build and install YARA Python from ./depends/yara-python-1.6.tar.gz
+
+    $ cd depends
+    $ tar xvfz yara-python-1.6.tar.gz
+    $ cd  yara-python-1.6
+    $ python setup.py build
+    $ sudo python setup.py install
+
+5) Build and install BeautifulSoup from ./depends/BeautifulSoup-3.2.0.tar.gz
+    (alternatively from the pypi http://pypi.python.org/pypi/BeautifulSoup/3.2.0)
+
+    $ cd depends
+    $ tar xvfz BeautifulSoup-3.2.0.tar.gz
+    $ cd BeautifulSoup-3.2.0/
+    $ python setup.py build
+    $ sudo python setup.py install
+
+6) Install pycrypto (for encrypted PDFs) from ./depends/pycrypto-2.4.1.tar.gz
+    (alternatively from the pypi http://pypi.python.org/pypi/pycrypto/2.4.1)
+
+    $ cd depends
+    $ tar xvfz pycrypto-2.4.1.tar.gz
+    $ cd pycrypto-2.4.1
+    $ python setup.py build
+    $ sudo python setup.py install
+
+Optional:
+a) To use the -g --graph option, you should install the "python-yapgvb" package.
+
+b) Filetype identification: Magic (optional)
+    If you use Ubuntu, you can install the python-magic package.
+

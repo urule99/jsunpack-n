@@ -1,0 +1,150 @@
+Blake Hartstein
+http://jsunpack.jeek.org/
+
+This is Beta release of jsunpack-network (jsunpackn) version 0.3.2c
+
+RELEASE NOTES:
+
+1) added -p (proxy) and -P (currentproxy) command line arguments (used during active fetching)
+
+Updates 2010-07-02 version 0.3.2c
+
+1) encrypted PDF handling and various PDF parsing improvements
+2) added global 'maxruntime' option to limit cumulative processing and raise a suspicious alert (off by default)
+3) added $CURDATE options.config output option
+4) re-enabled -d OUTDIR command line output option
+
+Updates 2010-05-20 version 0.3.2b
+
+1) added INSTALL.spidermonkey.shellcode instructions. This adds improved shellcode detection.
+2) updated jsunpack class options structure. New options will always use file contents instead of filenames (where possible). Also, rules are now part of the options structure.
+3) socket defaulttimeout now part of jsunpack class (it was global before). If you import jsunpack, make sure to set a timeout on your own.
+4) you can use jsunpack.version to get the current version string
+5) new performance option (-f "fasteval") for disabling non-critical features in favor of performance
+6) fixed a bug in redoevaltime option affecting performance of malicious scripts
+7) fixed a pdf parsing bug for /Page related to testcase samples/pdf-numPages.file
+
+Updates 2010-05-05 version 0.3.2a
+1) implemented this.numPages, getPageNthWord, and getPageNumWords
+2) fixed bug (python 2.6 only) for log_ips functionality
+3) fixed REALLY BAD performance bug related to python dynamic types. This is why type checking is a good thing and why python sucks at it. Most of my python bugs are because I redefine another variable, wipe out a loop variable, or otherwise use a bad type.
+
+Updates 2010-04-30 version 0.3.2
+1) added configuration command line option -c which replaces all former directories and filenames specified on the
+    command line, now uses options.config instead
+2) added command line option -J option to disable any decoding
+3) added document.title parsing
+4) js.files is now part of urlattr/rooturl structure
+5) handle referrers in building the tree
+6) detection now can be performed against full decoded stream (ie. between different decode levels on the same decoding)
+    don't use decodedOnly filter in the rule if you expect to match on the full decoded stream
+7) ipaddress logging upon detecting malicious contents with a 'options.config' option
+8) make PDF headers available to future decodings
+9) added navigator.plugins enumeration in pre.js 
+10) support getAnnot calls (note: previously getAnnots was supported only)
+11) html parsing customizable configuration file (see htmlparse.config file)
+12) fixed a bug in htmlparsing related to NULL bytes
+13) added pdf app.plugIns enumeration
+14) other bug fixes
+
+Updates 2010-03-18 version 0.3.1e
+1) added LZW and RunLength decoding to pdf.py
+2) fixed pdf.py so that streams that fail to decompress are not output
+3) rooturl is now a member of jsunpack objects (to better support threading)
+4) js.files now contains three entries [filename,origin,contents] (contents is new)
+5) new command line argument -Q (for Quit-outputting-files), incase you plan to use the output from a python script
+6) updated rules
+
+Updates 2010-02-04 version 0.3.1d
+1) improvements pdf.py
+2) fixed bug while handling lastModified headers
+
+Updates 2010-01-08 version 0.3.1c
+1) pdf improvements
+1a) handling and decoding of pdf annots (see sample-pdf-annots.file)
+1b) octal-based object decoding support
+1c) handling of obfuscation for this.info.title (see sample-infoTitle.pcap)
+2) graphing in verbose mode now displays all nodes rather than just malicious ones, increased node limit to 60
+3) bug fix for gzip python library to better handle IOError case for 'Not a gzipped file'
+
+Updates 2009-12-08 version 0.3.1b
+YARA 1.3 (or greater) is now a requirement, existing users of yara1.2 need to follow INSTALL guide #3 (or the most recent rules files will not compile)
+
+1) rule updates for yara 1.3 rule language
+2) fixes in PDF JavaScript parsing
+3) improvements to the tree structure, made appending children better
+4) cmdline options for logging and temporary directories
+5) additions to pre.js and post.js to handle App.eval, String.eval, and better definitions for Adobe version variables
+6) handle document.write and document.writeln with multiple parameters
+
+Updates 2009-10-08 version 0.3.1a
+1) bug fixes release
+1a) I now distribute an optional gzip.py file (on by default)
+	This file was built to fix gzip decompression errors (from python2.5), you may not want to use this if you use python2.6
+2) rule detection updates
+3) updates to pre.js file
+4) added instructions for compiling and using custom spidermonkey version INSTALL.spidermonkey
+5) (not new) you can type "make clean" to destroy all temporary and log files
+
+Updates 2009-09-25 version 0.3a 
+1) new extraction of URLs/JavaScript from Flash files (CWS/FWS) with swf.py
+2) significant performance improvements in shellcode processing
+3) bug fixes
+3a) fixed tree structure of urls (specific to pcap processing) 
+	when a node could detatch itself from the tree incorrectly
+
+Updates 2009-09-18 version 0.1f
+1) active fetching of with -a, and evaluation of urls with -u, use both (-u URL and -a) for purely active analysis
+2) evaluation of multiple different client version strings:
+2a) version enumeration: adobe reader for pdf
+2b) version enumeration: IE7, IE8, Firefox, Opera 
+2c) cumulative evaluation time limits per decoding, and inference of code coverage based upon evaluation time
+3) added pdf decoding support for ASCII85Decode and made other improvements to pdf decoding
+4) rules updates
+
+ mini-update 0.1eee (2009-09-09)
+1) code changes to the way urlattr tracking handles alerts
+2) change to files to include source URL/file (logging)
+3) fixes to graph (-g) and debug (-D) options
+
+Updates 2009-09-02 version 0.1e 
+
+First and foremost, thanks to Victor! (for creating the Yara detection library)
+Yara is now a required dependency and the supported format for the 'rules' file
+
+1) improved URL tracking using 'urlattr' class and urls dictionary
+1a) new command line option -g, to create a URL graph (only when pcap contains 10 or fewer URL requests)
+2) bug fixes for stream reassembly and pdf parsing
+2a) stream reassembly now handles all streams when processing a pcap file, 
+    regardless of whether the nids state is in end_states
+4) detection of NOP sled shellcode and performance improvements in shellcode processing
+    (this was one of the performance bottlenecks)
+5) new output format with ./files/ directory or -d OUTDIR command line option
+6) CVE references are available in the 'rules' file but are temporarily unavailable in alerts
+
+Updates 2009-08-01 version 0.1d
+1) determination of whether the code is malicious (see detection.py)
+2) better tracking with exploit_watch and ability incident alert for infected IP address
+3) pynids 'import nids' library is now optional due to user feedback
+4) additional command line arguments -h (help), -t (timeout), -v (verbose), and -V (very verbose) 
+5) bug fixes and performance improvements
+6) added debug option -D, which profiles memory usage (get Heapy from http://guppy-pe.sourceforge.net/#Heapy)
+
+Updates 2009-06-30 version 0.1c
+1) enumeration of javascript variables and other post-processing in post.js
+1a) automatic shellcode detection
+1b) identify URLs in shellcode or encrypted shellcode
+2) enhancements to exploit_watch tracking
+3) error processing
+3a) defaults values for undefined variables
+4) timeouts for JavaScript evaluation that takes too long
+
+ mini-update command-line file processing
+Updates 2009-06-24 version 0.1b
+1) re-wrote HTTP handling to support pipelined requests
+2) integration of pdf parsing (with updates to pdf.py)
+3) improved to dynamic javascript environment variables
+4) logging of decoded JavaScript
+
+Updates 2009-06-07 version 0.1a
+-initial release

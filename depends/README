@@ -1,0 +1,15 @@
+These packages are the original upstream packages provided by the authors with
+the only exception being the spidermonkey version which is patched to fit it's
+purpose to detect malicious JavaScript files.
+
+The reason for these copies is to have a known working dependency set to be able
+to compile and run JsUnpack on a usual Linux Distribution.
+
+The original source of the files are:
+
+BeautifulSoup-3.2.0.tar.gz  Beautiful Soup is a Python HTML/XML parser http://www.crummy.com/software/BeautifulSoup/
+js-1.8.0-rc1-src.tar.gz     A modified version of SpiderMonkey which is Mozilla's JavaScript engine https://developer.mozilla.org/en/SpiderMonkey
+pycrypto-2.4.1.tar.gz       The Python Cryptography Toolkit https://www.dlitz.net/software/pycrypto/
+pynids-0.6.1.tar.gz         pynids a python wrapper for libnids http://jon.oberheide.org/pynids/
+yara-1.6.tar.gz             YARA a tool to identify and classify malware samples http://code.google.com/p/yara-project/
+yara-python-1.6.tar.gz      The python bindings for YARA http://code.google.com/p/yara-project/

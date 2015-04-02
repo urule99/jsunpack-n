@@ -1,0 +1,69 @@
+This is an optional modification to SpiderMonkey to improve shellcode detection. The shellcode detection in post.js remains because this functionality is detection only and does not attempt to extract shellcode for performance reasons.
+
+After fetching and spidermonkey and locating the correct file follow steps 1, 2, 3, and 4.
+$ wget http://ftp.mozilla.org/pub/mozilla.org/js/js-1.8.0-rc1.tar.gz
+$ cd js/src
+$ vi jsstr.c
+
+1) around line 166 of jsstr.c add (+) these lines:
+
+|    s[n] = 0;
+
+    //added (append(shellcode))
+    check_shellcode(s,n);
+    //end added
+
+|    str = js_NewString(cx, s, n);
+
+2) around line 458 of jsstr.c add (+) these lines:
+|    newchars[ni] = 0;
+
+    //added (unescape(shellcode))
+    if (check_shellcode(newchars,ni) == JS_TRUE){
+        printf("\n//shellcode len %d (including any NOPs) JSEngineUnescaped = %s",ni,chars);
+    }
+    //end added
+
+|    str = js_NewString(cx, newchars, ni);
+
+3) around line 126 of jsstr.c add (+) globals and function:
+|}
+
+//added (globals and function)
+JSBool found_shellcode = JS_FALSE;
+JSBool found_shellcode_char = JS_FALSE;
+JSBool check_shellcode(jschar * s, size_t n){
+    int i = 0, count_threshold = 0;
+    char *a = (char *)s; /* jschar is uint16, therefore n is multiplied by 2 to get the char size */
+
+    if (n > 65535 && found_shellcode == JS_FALSE){
+        //code too large
+        printf("\n//warning CVE-NO-MATCH Shellcode Engine Length %d\n", n);
+        found_shellcode = JS_TRUE;
+    }
+    if (n > 100){
+        while (i<n*2 && found_shellcode_char == JS_FALSE){
+            if ((a[n] > 0 && a[n] < ' ' &&  a[n] != '\r' && a[n] != '\n' && a[n] != '\t') || (a[n] >= '\x7f')){
+                count_threshold ++;
+                if (count_threshold > 25){
+                    printf("\n//warning CVE-NO-MATCH Shellcode Engine Binary Threshold\n",a[n]);
+                    found_shellcode_char = JS_TRUE;
+                    return JS_TRUE;
+                }
+            }
+            i++;
+        }
+    }
+    return JS_FALSE;
+}
+//end added
+
+|JSString *
+|js_ConcatStrings(JSContext *cx, JSString *left, JSString *right)
+|{
+
+4) Then build with:
+$ make BUILD_OPT=1 -f Makefile.ref
+
+After this, you will find a "./Linux_All_OPT.OBJ/js" binary file.
+
